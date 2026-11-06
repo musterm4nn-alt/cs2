@@ -1,380 +1,493 @@
-"""Build assets.json from the raw wiki extracts in data/raw/.
+"""Build assets.json and CATALOG.md from data/game_data.json.
 
+data/game_data.json is produced by tools/extract_game_data.py from a local Cities: Skylines II install.
 Run from the repo root:  python tools/build_assets.py
 """
 import json
 import re
 import unicodedata
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw"
+CELL = 8  # metres per cell
 
-# Service buildings that are believed to be one-per-city. The wiki does not state this, so these
-# carry "uniqueVerified": false. Correct this list if the game says otherwise.
-LIKELY_UNIQUE_SERVICES = {
-    "City Hall", "Central Bank", "Central Intelligence Bureau", "Police Headquarters",
-    "Disease Control Center", "Health Research Institute", "Medical University", "Technical University",
-    "Radio Telescope", "Geological Research Center", "Large Hadron Collider", "Satellite Uplink",
-    "Early Disaster Warning System", "ChirpX Space Center", "International Airport",
-    "Observation Tower", "Bronze Statue", "Medieval Castle", "Water Park", "Nuclear Power Plant",
+UI_GROUPS = {
+    "Healthcare": "healthcare", "Deathcare": "deathcare", "Fire & Rescue": "fire_rescue", "DisasterControl": "fire_rescue",
+    "Police": "police", "Administration": "administration", "Education": "education", "Research": "research",
+    "Electricity": "electricity", "Water & Sewage": "water_sewage", "GarbageManagement": "garbage",
+    "CommunicationsPost": "communications", "CommunicationsTelecom": "communications",
+    "Parks & Recreation": "parks", "LargeParks": "parks", "SportsParks": "parks", "LargeSportsParks": "parks",
+    "TouristAttractions": "attractions", "SignaturesLandmarks": "landmarks", "RoadsParking": "parking",
+    "RoadsServices": "road_services", "Pathways": "pathways",
+    "TransportationRoad": "transport_road", "TransportationTrain": "transport_train", "TransportationTram": "transport_tram",
+    "TransportationSubway": "transport_subway", "TransportationShip": "transport_water", "TransportationFerry": "transport_water",
+    "TransportationAir": "transport_air",
+    "SignaturesResidential": "signature", "SignaturesResidentialMixed": "signature", "SignaturesCommercial": "signature",
+    "SignaturesOffice": "signature", "SignaturesIndustrial": "signature",
+}
+EXCLUDED_UI = {"ZonesExtractors", "PropsNature"}
+DLC_NAMES = {
+    "BridgesAndPorts": "Bridges & Ports", "LandmarkBuildings": "Landmark Buildings", "DowntownMarketSet": "Downtown Market Set",
+    "SanFranciscoSet": "San Francisco Set", "PDXAccount": "Paradox account reward", "CS1TreasureHunt": "CS1 owner reward",
+    "CityStations": "Urban City Stations", "DragonGate": "Dragon Gate", "LeisureVenues": "Leisure Venues",
+    "MediterraneanHeritage": "Mediterranean Heritage", "ModernArchitecture": "Modern Architecture",
+    "OfficeEvolution": "Office Evolution", "Skyscrapers": "Skyscrapers", "SupplyChains": "Supply Chains",
+    "UrbanPromenades": "Urban Promenades", "FreeUpdate02": None,
+}
+# component -> {field: output key}; first found wins. These become the asset's "stats".
+STAT_FIELDS = {
+    "Workplace": {"m_Workplaces": "workplaces"},
+    "ServiceCoverage": {"m_Range": "serviceRangeM", "m_Capacity": "serviceCapacity"},
+    "BuildingProperties": {"m_ResidentialProperties": "households"},
+    "Hospital": {"m_PatientCapacity": "patients", "m_AmbulanceCapacity": "ambulances", "m_MedicalHelicopterCapacity": "medicalHelicopters"},
+    "School": {"m_StudentCapacity": "students"},
+    "PowerPlant": {"m_ElectricityProduction": "electricityKW"},
+    "WindPowered": {"m_Production": "windProductionKW"},
+    "SolarPowered": {"m_Production": "solarProductionKW"},
+    "GroundWaterPowered": {"m_Production": "geothermalProductionKW"},
+    "Battery": {"m_Capacity": "batteryKWh", "m_PowerOutput": "batteryOutputKW"},
+    "Transformer": {},
+    "WaterPumpingStation": {"m_Capacity": "waterOutput"},
+    "SewageOutlet": {"m_Capacity": "sewageCapacity", "m_Purification": "sewagePurification"},
+    "GarbageFacility": {"m_GarbageCapacity": "garbageStorage", "m_VehicleCapacity": "garbageTrucks", "m_ProcessingSpeed": "garbageProcessing"},
+    "FireStation": {"m_FireEngineCapacity": "fireEngines", "m_FireHelicopterCapacity": "fireHelicopters"},
+    "PoliceStation": {"m_PatrolCarCapacity": "patrolCars", "m_PoliceHelicopterCapacity": "policeHelicopters", "m_JailCapacity": "jailCapacity"},
+    "Prison": {"m_PrisonerCapacity": "prisoners"},
+    "DeathcareFacility": {"m_HearseCapacity": "hearses", "m_StorageCapacity": "deathcareStorage", "m_ProcessingRate": "deathcareProcessing"},
+    "PostFacility": {"m_PostVanCapacity": "postVans", "m_MailStorageCapacity": "mailStorage", "m_SortingRate": "mailSorting"},
+    "TelecomFacility": {"m_Range": "telecomRangeM", "m_NetworkCapacity": "networkCapacity"},
+    "EmergencyShelter": {"m_ShelterCapacity": "shelterCapacity"},
+    "Attraction": {"m_Attractiveness": "attractiveness"},
+    "TransportDepot": {"m_VehicleCapacity": "depotVehicles"},
+    "TransportStation": {"m_ComfortFactor": "comfort"},
+    "MaintenanceDepot": {"m_VehicleCapacity": "maintenanceVehicles"},
+    "ParkingFacility": {"m_ComfortFactor": "parkingComfort"},
+    "Park": {"m_MaintenancePool": "parkMaintenancePool"},
+    "Pollution": {"m_NoisePollution": "noisePollution", "m_AirPollution": "airPollution", "m_GroundPollution": "groundPollution"},
 }
 
-# Port modules from Bridges and Ports are placed inside a port's area rather than as stand-alone lots.
-PORT_MODULES = {
-    "Small Auxiliary Port Gate", "Medium Auxiliary Port Gate", "Passenger Terminal", "Employee Canteen",
-    "Port Security", "Emergency Response", "Container Crane", "Container Crane (Striped)",
-    "Intermodal Train Terminal", "Small Cargo Container Yard", "Medium Cargo Container Yard",
-    "Large Cargo Container Yard", "Small Cargo Warehouse", "Medium Cargo Warehouse", "Large Cargo Warehouse",
-    "Small Tank Farm", "Medium Tank Farm", "Large Tank Farm", "Small Bulk Storage Yard",
-    "Medium Bulk Storage Yard", "Large Bulk Storage Yard",
-}
 
-# Buildings that must sit on or beside water (or a specific resource) rather than on a plain road lot.
-WATER_PLACEMENT = {
-    "Hydroelectric Power Plant", "Water Pumping Station", "Advanced Water Pumping Station", "Sewage Outlet",
-    "Harbor", "Cargo Harbor", "Small Port", "Medium Port", "Large Port", "Ferry Depot", "Ferry Terminal",
-    "Small Lighthouse", "Lighthouse", "Large Lighthouse", "Old Lighthouse",
-}
-RESOURCE_PLACEMENT = {"Geothermal Power Plant": "geothermal hotspot", "Groundwater Pumping Station": "groundwater"}
-
-# Network-attached buildings: they sit on tracks/roads rather than beside a road.
-TRACK_PLACEMENT = {
-    "Small Train Station", "Medium Train Station", "Train Station", "Terminus Station", "Cargo Train Terminal",
-    "Cargo Transfer Station", "Tram Junction Station", "Tram Parallel Station", "Tram Loop Station",
-    "Small Overground Subway Station", "Overground Subway Station", "Underground Subway Station",
-    "Small Elevated Subway Station", "Elevated Subway Station", "Railway Depot", "Rail Yard",
-    "Terminal Subway Yard", "Subway Yard", "Tram Depot",
-}
-
-CATEGORY_GROUP = {
-    "Post": "communications", "Telecom": "communications", "Education": "education", "Research": "research",
-    "Electricity": "electricity", "Fire": "fire_rescue", "Disaster Control": "fire_rescue",
-    "Garbage Management": "garbage", "Healthcare": "healthcare", "Deathcare": "deathcare",
-    "Park maintenance": "parks", "Parks and tourist attractions": "parks", "Landmarks": "landmarks",
-    "Police": "police", "Administration": "administration", "Road": "transport_road", "Train": "transport_train",
-    "Tram": "transport_tram", "Subway": "transport_subway", "Water": "transport_water",
-    "Ferry": "transport_ferry", "Air": "transport_air", "Water & Sewage": "water_sewage", "Parking": "parking",
-}
-
-
-def slug(name: str) -> str:
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
-    s = s.replace("&", "and").lower()
+def slug(name):
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().replace("&", "and").lower()
     return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
 
 
-def parse_size(s: str):
-    m = re.match(r"^\s*(\d+)\s*[×x]\s*(\d+)\s*$", s or "")
-    return (int(m.group(1)), int(m.group(2))) if m else None
+def ref_name(v):
+    return v.split(":", 1)[1] if isinstance(v, str) and ":" in v else None
 
 
-def parse_money(s: str):
-    s = (s or "").strip().replace(",", "")
-    m = re.match(r"^([\d.]+)\s*([KM]?)$", s)
-    if not m:
+def comp(p, name):
+    c = p["components"].get(name)
+    return c if isinstance(c, dict) else {}
+
+
+def num(v):
+    if isinstance(v, bool) or v is None:
         return None
-    v = float(m.group(1)) * {"": 1, "K": 1_000, "M": 1_000_000}[m.group(2)]
-    return int(round(v))
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    return v if isinstance(v, (int, float)) else None
 
 
-def parse_extra(s: str):
+def stats_of(p):
     out = {}
-    for part in (s or "").split(";"):
-        if "=" not in part:
-            continue
-        k, v = part.split("=", 1)
-        k, v = k.strip(), v.strip()
-        try:
-            out[k] = float(v) if "." in v else int(v)
-        except ValueError:
-            out[k] = v
-    if "range" in out:
-        out["serviceRangeM"] = out.pop("range")
-    if "capacity" in out:
-        out["serviceCapacity"] = out.pop("capacity")
-    if "jobs" in out:
-        out["workplaces"] = out.pop("jobs")
-    for p in ("noise", "air", "ground"):
-        if p in out:
-            out[p + "Pollution"] = out.pop(p)
+    for c, fields in STAT_FIELDS.items():
+        cd = comp(p, c)
+        for f, key in fields.items():
+            v = num(cd.get(f))
+            if v not in (None, 0) and key not in out:
+                out[key] = v
     return out
 
 
-def build_services():
-    assets = []
-    category, headers, mains = None, [], []
-    for line in (RAW / "service_buildings.txt").read_text(encoding="utf-8").splitlines():
-        if not line.strip() or line.startswith("#") and not line.startswith("##"):
+def requirements(p):
+    u = comp(p, "Unlockable")
+    names = [ref_name(x) for x in (u.get("m_RequireAll") or []) + (u.get("m_RequireAny") or []) if isinstance(x, str)]
+    return [n for n in names if n] or None
+
+
+def dlc_of(p):
+    cp = ref_name(comp(p, "ContentPrerequisite").get("m_ContentPrerequisite"))
+    if cp:
+        return DLC_NAMES.get(cp, cp)
+    if p["source"] != "base":
+        return DLC_NAMES.get(p["source"], p["source"])
+    return None
+
+
+def zone_key(ref):
+    """Normalise a zone prefab reference to (zone id)."""
+    n = ref_name(ref) or ""
+    return ZONE_ALIAS.get(n)
+
+
+ZONE_ALIAS = {}
+
+
+def build_zones(prefabs, names):
+    zones = {}
+    for p in prefabs:
+        if p["class"] != "ZonePrefab" or p["prefab"] == "Unzoned":
             continue
-        if line.startswith("## "):
-            category, cols = line[3:].split(" :: ")
-            headers = cols.split("|")
-            mains = []
+        internal = p["prefab"]
+        base = re.sub(r"^(EU|NA) ", "", internal)
+        display = names.get(internal) or names.get("EU " + internal) or internal
+        display = re.sub(r"^(EU|NA) ", "", display)
+        if p["source"] == "base":
+            zid = slug(base)
+        else:
+            zid = slug(display)
+        area = p["fields"].get("m_AreaType")
+        if area is None:  # DLC zones: infer from name
+            area = 1 if "Residential" in internal else 2 if "Commercial" in internal else 3
+        office = bool(p["fields"].get("m_Office")) or "Office" in internal
+        family = "office" if office else {1: "residential", 2: "commercial", 3: "industrial"}.get(area, "other")
+        if family == "industrial" and base != "Industrial Manufacturing":
+            continue  # specialised industry areas are not zones you paint
+        ZONE_ALIAS[internal] = zid
+        z = zones.setdefault(zid, {"id": zid, "name": display, "family": family, "themes": [], "dlc": dlc_of(p),
+                                   "waterfront": "Waterfront" in internal, "lot": None})
+        theme = internal.split(" ")[0] if internal.startswith(("EU ", "NA ")) else None
+        if theme and theme not in z["themes"]:
+            z["themes"].append(theme)
+    # lot size ranges from the growable buildings that spawn in each zone
+    lots = defaultdict(list)
+    for p in prefabs:
+        sb = comp(p, "SpawnableBuilding")
+        if p["class"] == "BuildingPrefab" and sb:
+            zid = zone_key(sb.get("m_ZoneType"))
+            w, d = p["fields"].get("m_LotWidth"), p["fields"].get("m_LotDepth")
+            if zid and w and d:
+                lots[zid].append((w, d))
+    for zid, z in zones.items():
+        if lots.get(zid):
+            ws, ds = [w for w, _ in lots[zid]], [d for _, d in lots[zid]]
+            z["lot"] = {"minW": min(ws), "maxW": max(ws), "minD": min(ds), "maxD": max(ds), "buildingCount": len(lots[zid])}
+    return sorted(zones.values(), key=lambda z: (z["family"], z["id"]))
+
+
+def road_width(p, by):
+    def piece_w(n):
+        pc = by["NetPiecePrefab"].get(n)
+        b = pc and pc["fields"].get("m_Bounds")
+        return (b["max"]["x"] - b["min"]["x"]) if b else 0
+
+    def section_w(n):
+        s = by["NetSectionPrefab"].get(n)
+        if not s:
+            return 0
+        ws = [piece_w(ref_name(pc.get("m_Piece"))) for pc in s["fields"].get("m_Pieces", []) if not pc.get("m_RequireAll")]
+        if ws:
+            return max(ws)
+        subs = s["fields"].get("m_SubSections", [])
+        return max([section_w(ref_name(x.get("m_SubSection") or x.get("m_Section"))) for x in subs] or [0])
+
+    secs = [s for s in p["fields"].get("m_Sections", []) if not s.get("m_RequireAll")]
+    width = sum(section_w(ref_name(s.get("m_Section"))) for s in secs)
+    lanes = sum(1 for s in secs if "Drive" in (ref_name(s.get("m_Section")) or ""))
+    return round(width, 2), lanes
+
+
+def build_roads(prefabs, names, by):
+    roads, seen = [], set()
+    for p in prefabs:
+        if p["class"] not in ("RoadPrefab", "TrackPrefab") or p["source"] != "base":
             continue
-        main_part, _, extra = line.partition(" || ")
-        cells = main_part.split("|")
-        row = dict(zip(headers, cells + [""] * (len(headers) - len(cells))))
-        name = row["Name"].strip()
-        size = parse_size(row.get("Size (cells)", ""))
-        dlc = (row.get("DLC") or "").strip() or None
-        req = (row.get("Requirements") or "").strip() or None
+        group = ref_name(comp(p, "UIObject").get("m_Group"))
+        if not group or not group.startswith(("Roads", "Transportation")):
+            continue
+        name = names.get(p["prefab"], p["prefab"])
+        rid = slug(name)
+        if rid in seen:
+            rid = slug(name + " " + p["prefab"])
+        seen.add(rid)
+        width, lanes = road_width(p, by)
+        if width <= 0:
+            continue
+        f = p["fields"]
+        is_track = p["class"] == "TrackPrefab"
+        highway = bool(f.get("m_HighwayRules"))
+        zoning = bool(ref_name(f.get("m_ZoneBlock"))) if not is_track else False
+        roads.append({
+            "id": rid, "name": name, "prefab": p["prefab"],
+            "category": "track" if is_track else "highway" if highway else {
+                "RoadsSmallRoads": "small", "RoadsMediumRoads": "medium", "RoadsLargeRoads": "large",
+                "TransportationRoad": "transit_lane", "TransportationShip": "port"}.get(group, group),
+            "lanes": lanes or None,
+            "speedKmh": round(f["m_SpeedLimit"] / 2) if f.get("m_SpeedLimit") else None,
+            "widthM": width, "widthCells": round(width / CELL, 3),
+            "allowsZoning": zoning, "buildingAccess": not highway and not is_track,
+            "dlc": dlc_of(p), "upkeepNote": None,
+        })
+        roads[-1].pop("upkeepNote")
+    return sorted(roads, key=lambda r: (r["category"], r["widthM"], r["id"]))
 
-        # Upgrade detection: name starts with an earlier main building's name in this category.
-        parent = None
-        for m in sorted(mains, key=len, reverse=True):
-            if name.startswith(m + " ") and not name[len(m) + 1:].startswith("("):
-                parent = m
-                break
 
-        skip = {"Name", "Size (cells)", "DLC", "Requirements", "Upkeep per month"}
-        stats = {k: v.strip() for k, v in row.items() if k not in skip and v and v.strip() not in ("", "0", "0.0")}
-        stats.update(parse_extra(extra))
+def build_assets(prefabs, names):
+    blds = [p for p in prefabs if p["class"] in ("BuildingPrefab", "BuildingExtensionPrefab")]
+    by_prefab = {p["prefab"]: p for p in blds}
+    included, assets = {}, []
 
-        a = {
-            "id": slug(name),
-            "name": name,
-            "group": CATEGORY_GROUP.get(category, slug(category)),
-            "category": category,
-            "dlc": dlc,
-            "requirement": req,
-            "upkeepPerMonth": parse_money(row.get("Upkeep per month", "")),
-            "stats": stats,
-        }
-        if parent:
-            a["kind"] = "extension" if size else "upgrade"
-            a["parent"] = slug(parent)
-        elif name in PORT_MODULES:
-            a["kind"] = "port_module"
-            a["parent"] = "small_port|medium_port|large_port"
+    def group_of(p):
+        return ref_name(comp(p, "UIObject").get("m_Group"))
+
+    # 1) top-level placeable buildings from the build menus
+    for p in blds:
+        if p["class"] != "BuildingPrefab" or "SpawnableBuilding" in p["components"] or "ServiceUpgrade" in p["components"]:
+            continue
+        g = group_of(p)
+        if not g or g in EXCLUDED_UI or g not in UI_GROUPS:
+            continue
+        included[p["prefab"]] = p
+
+    ids = {}
+
+    def make_id(p):
+        name = names.get(p["prefab"]) or p["prefab"]
+        i = slug(name)
+        if i in ids.values():
+            i = slug(name + " " + p["prefab"])
+        ids[p["prefab"]] = i
+        return i
+
+    for pf in sorted(included):
+        make_id(included[pf])
+
+    # 2) upgrades / sub-buildings whose parent is included
+    upgrades = []
+    for p in blds:
+        su = comp(p, "ServiceUpgrade")
+        parents = [ref_name(x) for x in (su.get("m_Buildings") or []) if isinstance(x, str)]
+        parents = [x for x in parents if x in included]
+        if su and parents:
+            upgrades.append((p, parents))
+            make_id(p)
+
+    for pf, p in sorted(included.items(), key=lambda kv: ids[kv[0]]):
+        g = group_of(p)
+        group = UI_GROUPS[g]
+        sig = comp(p, "SignatureBuilding")
+        zone = zone_key(sig.get("m_ZoneType")) if sig else None
+        kind = "signature" if sig else "landmark" if group == "landmarks" else "service"
+        a = base_asset(p, names, ids[pf], group, g)
+        a["kind"] = kind
+        if sig:
+            a["zone"] = zone
+            a["industrial"] = bool(zone and zone.startswith("industrial"))
+        a["placement"] = placement_of(p, group, zone)
+        assets.append(a)
+
+    for p, parents in sorted(upgrades, key=lambda t: ids[t[0]["prefab"]]):
+        su = comp(p, "ServiceUpgrade")
+        parent = included[parents[0]]
+        g = group_of(parent)
+        a = base_asset(p, names, ids[p["prefab"]], UI_GROUPS[g], g)
+        a["parents"] = [ids[x] for x in parents]
+        a["forbidMultiple"] = bool(su.get("m_ForbidMultiple"))
+        a["upgradeCost"] = num(su.get("m_UpgradeCost"))
+        if p["class"] == "BuildingPrefab":
+            a["kind"] = "sub_building"
+            dist = num(su.get("m_MaxPlacementDistance")) or 0
+            a["maxDistanceM"] = dist
+            a["placement"] = "near_parent"
         else:
-            a["kind"] = "landmark" if category == "Landmarks" else "service"
-            mains.append(name)
-
-        if size:
-            a["size"] = {"w": size[0], "d": size[1]}
-            a["placeable"] = a["kind"] != "upgrade"
-        else:
-            a["placeable"] = False
-            a["note"] = "In-building upgrade with no footprint of its own; it never takes up extra cells."
-            if a["kind"] not in ("upgrade",):
-                a["note"] = "Size unknown on the wiki."
-
-        if category == "Landmarks":
-            a["unique"], a["uniqueVerified"] = True, True
-        elif name in LIKELY_UNIQUE_SERVICES:
-            a["unique"], a["uniqueVerified"] = True, False
-        else:
-            a["unique"] = False
-
-        if name in WATER_PLACEMENT:
-            a["placement"] = "water"
-        elif name in RESOURCE_PLACEMENT:
-            a["placement"] = "resource:" + RESOURCE_PLACEMENT[name]
-        elif name in TRACK_PLACEMENT:
-            a["placement"] = "track"
-        elif a["kind"] in ("extension", "upgrade"):
+            f = p["fields"]
+            ov = f.get("m_OverrideLotSize") or {}
+            if f.get("m_ExternalLot") or (ov.get("x") or 0) > 0:
+                a["kind"] = "fixed_extension"
+                a["placeable"] = False
+                if ov.get("x"):
+                    a["size"] = {"w": ov["x"], "d": ov["y"]}
+                a["note"] = "Attached automatically at a fixed spot on the parent; list it in the parent's upgrades."
+            else:
+                a["kind"] = "upgrade"
+                a["placeable"] = False
+                a.pop("size", None)
+                a["note"] = "In-building upgrade with no footprint; list it in the parent's upgrades."
             a["placement"] = "attached"
-        elif a["kind"] == "port_module":
-            a["placement"] = "port_area"
-        else:
-            a["placement"] = "road"
         assets.append(a)
     return assets
 
 
-def build_signatures():
-    assets, zone = [], None
-    zone_map = {"residential": "residential", "mixed": "residential_mixed", "commercial": "commercial", "office": "office"}
-    for line in (RAW / "signature_buildings.txt").read_text(encoding="utf-8").splitlines():
-        if not line.strip() or (line.startswith("#") and not line.startswith("##")):
-            continue
-        if line.startswith("## "):
-            zone = line[3:].strip()
-            continue
-        name, dlc, size, req, effects, households, employees = (line.split("|") + [""] * 7)[:7]
-        w, d = parse_size(size)
-        a = {
-            "id": slug(name),
-            "name": name,
-            "group": "signature",
-            "category": "Signature " + zone,
-            "kind": "signature",
-            "zone": zone_map[zone],
-            "dlc": dlc or None,
-            "requirement": None if req == "unknown" else req,
-            "size": {"w": w, "d": d},
-            "placeable": True,
-            "placement": "road",
-            "unique": True,
-            "uniqueVerified": True,
-            "effects": effects,
-            "stats": {},
-        }
-        if households:
-            a["stats"]["households"] = int(households.replace(",", ""))
-        if employees:
-            a["stats"]["workplaces"] = int(employees.replace(",", ""))
-        assets.append(a)
-    return assets
+# Effect type ids, mapped only where a known in-game value confirms them (e.g. Halo Heights: +10 well-being within
+# 2.5 km = local type 3; Principiis: -2 crime within 500 m = local type 0). Others are kept as raw type numbers.
+LOCAL_EFFECTS = {0: "crime", 3: "wellbeing"}
+CITY_EFFECTS = {0: "attractiveness", 26: "importCosts", 32: "officeEfficiency", 14: "universityInterest", 25: "universityGraduation"}
 
 
-ZONES = [
-    # Lot sizes are width (along the road) x depth (away from the road), in cells. Source: wiki Zoning page.
-    {"id": "residential_low", "name": "Low Density Housing", "family": "residential", "milestone": 0, "lot": {"minW": 2, "maxW": 4, "minD": 2, "maxD": 6}},
-    {"id": "residential_row", "name": "Medium Density Row Housing", "family": "residential", "milestone": 1, "lot": {"minW": 1, "maxW": 1, "minD": 2, "maxD": 6}},
-    {"id": "residential_medium", "name": "Medium Density Housing", "family": "residential", "milestone": 2, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "residential_high", "name": "High Density Housing", "family": "residential", "milestone": 8, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "residential_mixed", "name": "Mixed Housing", "family": "residential", "milestone": 5, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}, "note": "Shops on the ground floor, apartments above."},
-    {"id": "residential_lowrent", "name": "Low Rent Housing", "family": "residential", "milestone": 4, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "residential_low_waterfront", "name": "Low Density Waterfront Housing", "family": "residential", "dlc": "Beach Properties", "lot": None, "note": "Lot sizes not on the wiki. Must face water."},
-    {"id": "residential_medium_mediterranean", "name": "Medium Density Mediterranean Housing", "family": "residential", "dlc": "Beach Properties", "lot": None, "note": "Lot sizes not on the wiki; assume same as Medium Density Housing."},
-    {"id": "commercial_low", "name": "Low Density Business", "family": "commercial", "milestone": 0, "lot": {"minW": 2, "maxW": 5, "minD": 2, "maxD": 6}},
-    {"id": "commercial_high", "name": "High Density Business", "family": "commercial", "milestone": 9, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "commercial_low_chinese", "name": "Low Density Chinese Business", "family": "commercial", "dlc": "region pack", "lot": None, "note": "Lot sizes not on the wiki; assume same as Low Density Business."},
-    {"id": "office_low", "name": "Low Density Offices", "family": "office", "milestone": 4, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "office_high", "name": "High Density Offices", "family": "office", "milestone": 10, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-    {"id": "industrial_manufacturing", "name": "Industrial Manufacturing", "family": "industrial", "milestone": 0, "lot": {"minW": 2, "maxW": 6, "minD": 2, "maxD": 6}},
-]
+def effects_of(p):
+    out = []
+    for cname, table in (("LocalEffects", LOCAL_EFFECTS), ("CityEffects", CITY_EFFECTS)):
+        for e in comp(p, cname).get("m_Effects") or []:
+            if not isinstance(e, dict) or e.get("m_Type") is None:
+                continue
+            t = e["m_Type"]
+            eff = {"scope": "local" if cname == "LocalEffects" else "city",
+                   "type": table.get(t, f"{cname[:-7].lower()}Type{t}"), "delta": round(e.get("m_Delta") or 0, 4)}
+            if e.get("m_Radius"):
+                eff["radiusM"] = num(e["m_Radius"])
+            out.append(eff)
+    return out or None
 
-# Road data from the wiki Roads page (lanes, speed, category). Widths are NOT on the wiki: widthCells is an
-# estimate (1 cell = 8 m) and is marked widthVerified: false. Fix these if you measure them in game.
-ROADS = [
-    ("alley", "Alley", "small", 2, 30, 1.0), ("one_way_alley", "One-Way Alley", "small", 1, 30, 1.0),
-    ("pedestrian_street", "Pedestrian Street", "small", 2, 20, 2.0), ("small_pedestrian_street", "Small Pedestrian Street", "small", 1, 20, 1.0),
-    ("gravel_road", "Gravel Road", "small", 2, 30, 2.0),
-    ("one_lane_one_way_road", "One-Lane One-Way Road", "small", 1, 40, 1.5),
-    ("two_lane_road", "Two-Lane Road", "small", 2, 40, 2.0), ("two_lane_one_way_road", "Two-Lane One-Way Road", "small", 2, 40, 2.0),
-    ("three_lane_asymmetric_road", "Three-Lane Asymmetric Road", "small", 3, 40, 2.5), ("three_lane_one_way_road", "Three-Lane One-Way Road", "small", 3, 40, 2.5),
-    ("two_lane_parking_road", "Two-Lane Perpendicular/Angled Parking Road", "small", 2, 40, 3.0),
-    ("four_lane_road", "Four-Lane Road", "medium", 4, 50, 3.0), ("four_lane_divided_road", "Four-Lane Divided Road", "medium", 4, 50, 3.5),
-    ("four_lane_one_way_road", "Four-Lane One-Way Road", "medium", 4, 50, 3.0), ("five_lane_asymmetric_road", "Five-Lane Asymmetric Road", "medium", 5, 50, 3.5),
-    ("five_lane_one_way_road", "Five-Lane One-Way Road", "medium", 5, 50, 3.5),
-    ("six_lane_road", "Six-Lane Road", "large", 6, 50, 4.0), ("six_lane_divided_road", "Six-Lane Divided Road", "large", 6, 60, 4.5),
-    ("six_lane_one_way_road", "Six-Lane One-Way Road", "large", 6, 50, 4.0), ("seven_lane_asymmetric_road", "Seven-Lane Asymmetric Road", "large", 7, 50, 4.5),
-    ("eight_lane_divided_road", "Eight-Lane Divided Road", "large", 8, 60, 5.5),
-    ("one_lane_one_way_highway", "One-Lane One-Way Highway", "highway", 1, 80, 1.5), ("two_lane_one_way_highway", "Two-Lane One-Way Highway", "highway", 2, 120, 2.0),
-    ("three_lane_one_way_highway", "Three-Lane One-Way Highway", "highway", 3, 120, 2.5), ("four_lane_one_way_highway", "Four-Lane One-Way Highway", "highway", 4, 120, 3.0),
-    ("five_lane_one_way_highway", "Five-Lane One-Way Highway", "highway", 5, 120, 3.5),
-    ("two_lane_two_way_highway", "Two-Lane Two-Way Highway", "highway", 2, 100, 2.0), ("four_lane_two_way_highway", "Four-Lane Two-Way Highway", "highway", 4, 100, 3.5),
-]
-TRACKS = [
-    ("train_track_double", "Double Train Track", 2.0), ("tram_track_double", "Double Tram Track", 1.5),
-    ("subway_track_double", "Double Subway Track", 2.0),
-]
+
+def base_asset(p, names, aid, group, ui):
+    f = p["fields"]
+    sc, po = comp(p, "ServiceConsumption"), comp(p, "PlaceableObject")
+    a = {
+        "id": aid, "name": names.get(p["prefab"]) or p["prefab"], "prefab": p["prefab"],
+        "group": group, "category": ui, "dlc": dlc_of(p),
+        # UniqueObject = one per city; signature buildings are also limited to one each by the game.
+        "unique": "UniqueObject" in p["components"] or "SignatureBuilding" in p["components"],
+        "placeable": True,
+        "constructionCost": num(po.get("m_ConstructionCost")),
+        "upkeepPerMonth": num(sc.get("m_Upkeep")),
+        "xp": num(po.get("m_XPReward")) or num(comp(p, "SignatureBuilding").get("m_XPReward")),
+        "requires": requirements(p),
+        "stats": stats_of(p),
+        "effects": effects_of(p),
+        "theme": ref_name(comp(p, "ThemeObject").get("m_Theme")),
+    }
+    if f.get("m_LotWidth") and f.get("m_LotDepth"):
+        a["size"] = {"w": f["m_LotWidth"], "d": f["m_LotDepth"]}
+    else:
+        a["placeable"] = False
+    return a
+
+
+def placement_of(p, group, zone):
+    c = p["components"]
+    if any(k in c for k in ("ShorelineObject", "FloatingObject", "UnderwaterObject", "SewageOutlet")):
+        return "water"
+    wp = comp(p, "WaterPumpingStation")
+    if wp.get("m_AllowedWaterTypes") == 1:
+        return "resource:groundwater"
+    if wp.get("m_AllowedWaterTypes") == 2 or "Hydroelectric" in p["prefab"]:
+        return "water"
+    if "GroundWaterPowered" in c:
+        return "resource:geothermal"
+    if group in ("transport_water",) or (zone and "waterfront" in zone):
+        return "water"
+    if group in ("transport_train", "transport_tram", "transport_subway"):
+        return "track"
+    if group == "pathways":
+        return "over_road"
+    return "road"
 
 
 def main():
-    services = build_services()
-    signatures = build_signatures()
-    ids = [a["id"] for a in services + signatures]
-    dupes = sorted({i for i in ids if ids.count(i) > 1})
-    if dupes:
-        raise SystemExit(f"duplicate ids: {dupes}")
-
-    roads = [
-        {"id": i, "name": n, "category": c, "lanes": l, "speedKmh": s, "widthCells": w, "widthVerified": False,
-         "allowsZoning": c != "highway", "buildingAccess": c != "highway"}
-        for i, n, c, l, s, w in ROADS
-    ] + [
-        {"id": i, "name": n, "category": "track", "widthCells": w, "widthVerified": False, "allowsZoning": False, "buildingAccess": False}
-        for i, n, w in TRACKS
-    ]
+    src = json.loads((ROOT / "data" / "game_data.json").read_text(encoding="utf-8"))
+    prefabs, names = src["prefabs"], src["names"]
+    by = defaultdict(dict)
+    for p in prefabs:
+        by[p["class"]][p["prefab"]] = p
+    zones = build_zones(prefabs, names)
+    roads = build_roads(prefabs, names, by)
+    assets = build_assets(prefabs, names)
+    for z in zones:
+        if z["lot"] is None:
+            z["note"] = "No growable buildings found for this zone in the extracted data."
 
     out = {
         "meta": {
             "name": "Cities: Skylines II placeable asset dataset",
             "generated": date.today().isoformat(),
-            "source": ["https://cs2.paradoxwikis.com/Service_buildings", "https://cs2.paradoxwikis.com/Signature_buildings",
-                       "https://cs2.paradoxwikis.com/Zoning", "https://cs2.paradoxwikis.com/Roads"],
-            "license": "Data derived from the Cities: Skylines II Wiki, CC BY-NC-SA 3.0. Non-commercial use only.",
-            "wikiDataVersionNote": "Some wiki sections were last verified for game version 1.5; DLC coverage depends on the wiki.",
-            "counts": {"services": len(services), "signatures": len(signatures), "zones": len(ZONES), "roads": len(roads)},
+            "source": "Extracted from the game files of a local Cities: Skylines II install (base game + installed DLC) "
+                      "with tools/extract_game_data.py. Names are the game's English (en-US) names.",
+            "counts": {"assets": len(assets), "zones": len(zones), "roads": len(roads)},
+            "disclaimer": "Unofficial. Cities: Skylines II is a trademark of Paradox Interactive / Colossal Order.",
         },
         "grid": {
-            "cellMeters": 8,
-            "sizeConvention": "size.w = width along the road (frontage), size.d = depth away from the road, in cells.",
-            "sizeConventionVerified": False,
+            "cellMeters": CELL,
+            "sizeConvention": "size.w = lot width along the road (the building's front), size.d = lot depth, in cells "
+                              "(the game's m_LotWidth / m_LotDepth).",
             "rotation": "0 = front faces north (-y), 90 = east (+x), 180 = south (+y), 270 = west (-x).",
         },
         "rules": {
             "maxZoneDepthCells": 6,
-            "uniqueBuildingsOnce": "Every asset with unique: true may be placed at most once.",
+            "uniqueBuildingsOnce": "Assets with unique: true (the game's UniqueObject flag) may be placed at most once.",
             "noOverlap": "Footprints of buildings, roads and zones may not overlap.",
-            "roadAccess": "Every building with placement 'road' and every zone block must touch a road that has buildingAccess true.",
-            "extensions": "kind 'extension' must be placed touching its parent building instance; kind 'upgrade' has no footprint.",
-            "highways": "Highways do not give buildings or zones road access.",
+            "roadAccess": "Buildings with placement 'road' need their front edge on a road with buildingAccess true.",
+            "subBuildings": "kind 'sub_building' is placed by the player within maxDistanceM of its parent; "
+                            "kind 'upgrade' and 'fixed_extension' go in the parent's upgrades list.",
+            "highways": "Highways and tracks do not give buildings or zones road access.",
         },
-        "zones": ZONES,
+        "zones": zones,
         "roads": roads,
-        "assets": services + signatures,
+        "assets": assets,
     }
     (ROOT / "assets.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     write_catalog(out)
-    print(f"wrote assets.json: {len(services)} service assets, {len(signatures)} signature buildings, {len(roads)} road types")
+    kinds = defaultdict(int)
+    for a in assets:
+        kinds[a["kind"]] += 1
+    print(f"wrote assets.json: {len(assets)} assets {dict(kinds)}, {len(zones)} zones, {len(roads)} roads")
 
 
-def key_stats(a):
-    s = a.get("stats", {})
-    parts = []
-    for k, label in (("households", "homes"), ("workplaces", "jobs"), ("serviceRangeM", "range m"),
-                     ("Student capacity", "students"), ("Patient capacity", "patients"),
-                     ("Electricity production", "power"), ("Water output", "water"), ("Sewage treatment", "sewage"),
-                     ("Garbage processing capacity", "garbage"), ("Shelter Capacity", "shelter"), ("Leisure", "leisure"),
-                     ("Attractiveness", "attract"), ("Range", "range"), ("Network Capacity", "network")):
-        if s.get(k) not in (None, ""):
-            v = s[k]
-            if isinstance(v, float) and v.is_integer():
-                v = int(v)
-            parts.append(f"{label} {v}")
-    if a.get("effects"):
-        parts.append(a["effects"])
-    return "; ".join(parts)
+KEY_STATS = [("households", "homes"), ("workplaces", "jobs"), ("serviceRangeM", "range m"), ("students", "students"),
+             ("patients", "patients"), ("electricityKW", "power kW"), ("windProductionKW", "wind kW"),
+             ("solarProductionKW", "solar kW"), ("geothermalProductionKW", "geothermal kW"), ("batteryKWh", "battery kWh"),
+             ("waterOutput", "water"), ("sewageCapacity", "sewage"), ("garbageProcessing", "garbage/month"),
+             ("fireEngines", "fire engines"), ("patrolCars", "patrol cars"), ("hearses", "hearses"), ("postVans", "post vans"),
+             ("telecomRangeM", "telecom range m"), ("networkCapacity", "network"), ("shelterCapacity", "shelter"),
+             ("attractiveness", "attract"), ("depotVehicles", "vehicles")]
 
 
 def write_catalog(out):
-    lines = [
+    L = [
         "# CS2 asset catalog (compact)",
         "",
-        "Generated from assets.json. One row per asset. Size = width (along road) × depth, in 8 m cells.",
-        "U = unique (place at most once; U? = believed unique, unverified). Placement: road = front edge must touch a road;",
-        "attached = extension, must touch its parent; water / track / port_area / resource = special sites.",
-        "In-building upgrades (no footprint) are listed per parent at the end of each section.",
+        "Generated from assets.json (extracted from the game files). One row per asset.",
+        "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
+        "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
+        "place within the given distance of its parent; water / track / resource / over_road = special sites.",
+        "Upgrades with no footprint are listed under their parent at the end of each section.",
         "",
-        "## Zones (lot = width×depth range in cells, zoning reaches at most 6 cells from a road)",
+        "## Zones (lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road)",
         "",
-        "id | name | lot sizes | milestone",
-        "---|---|---|---",
+        "id | name | family | lot sizes | themes | DLC",
+        "---|---|---|---|---|---",
     ]
     for z in out["zones"]:
         lot = z["lot"]
         lot_s = f"{lot['minW']}×{lot['minD']} to {lot['maxW']}×{lot['maxD']}" if lot else "unknown"
-        lines.append(f"{z['id']} | {z['name']} | {lot_s} | {z.get('milestone', z.get('dlc', ''))}")
-    lines += ["", "## Roads (widthCells are estimates, not verified)", "", "id | name | lanes | km/h | width cells | zoning/access",
-              "---|---|---|---|---|---"]
+        L.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
+    L += ["", "## Roads and tracks (width from the game's road sections)", "",
+          "id | name | category | lanes | km/h | width m | width cells | zoning | building access",
+          "---|---|---|---|---|---|---|---|---"]
     for r in out["roads"]:
-        lines.append(f"{r['id']} | {r['name']} | {r.get('lanes', '')} | {r.get('speedKmh', '')} | {r['widthCells']} | "
-                     f"{'yes' if r['allowsZoning'] else 'no'}")
-    groups = {}
+        L.append(f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
+                 f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}")
+    by_cat = defaultdict(list)
     for a in out["assets"]:
-        groups.setdefault(a["category"], []).append(a)
-    for cat, items in groups.items():
-        lines += ["", f"## {cat}", "", "id | name | size | U | DLC | placement | parent | stats", "---|---|---|---|---|---|---|---"]
-        upgrades = {}
+        by_cat[a["category"]].append(a)
+    for cat in sorted(by_cat, key=lambda c: (UI_GROUPS.get(c, c), c)):
+        items = by_cat[cat]
+        L += ["", f"## {cat}", "", "id | name | size | U | DLC | placement | parent | upkeep/mo | stats", "---|---|---|---|---|---|---|---|---"]
+        ups = defaultdict(list)
         for a in items:
             if not a["placeable"]:
-                upgrades.setdefault(a.get("parent", "?"), []).append(a["id"])
+                for par in a.get("parents", ["?"]):
+                    ups[par].append(a["id"])
                 continue
-            u = ("U" if a.get("uniqueVerified") else "U?") if a["unique"] else ""
-            size = f"{a['size']['w']}×{a['size']['d']}"
-            lines.append(f"{a['id']} | {a['name']} | {size} | {u} | {a['dlc'] or ''} | {a['placement']} | "
-                         f"{a.get('parent', '')} | {key_stats(a)}")
-        if upgrades:
-            lines.append("")
-            for p, ups in upgrades.items():
-                lines.append(f"- upgrades of `{p}` (no footprint): " + ", ".join(f"`{u}`" for u in ups))
-    (ROOT / "CATALOG.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+            st = a["stats"]
+            parts = [f"{label} {st[k]}" for k, label in KEY_STATS if k in st]
+            if a.get("zone"):
+                parts.insert(0, "zone " + a["zone"])
+            for e in a.get("effects") or []:
+                if e["type"] in ("wellbeing", "crime") and e.get("radiusM"):
+                    parts.append(f"{e['type']} {e['delta']:+g} within {e['radiusM']} m")
+            par = ", ".join(a.get("parents", []))
+            if a.get("maxDistanceM"):
+                par += f" (≤{a['maxDistanceM']} m)"
+            L.append(f"{a['id']} | {a['name']} | {a['size']['w']}×{a['size']['d']} | {'U' if a['unique'] else ''} | "
+                     f"{a['dlc'] or ''} | {a['placement']} | {par} | {a['upkeepPerMonth'] or ''} | {'; '.join(parts)}")
+        if ups:
+            L.append("")
+            for par, lst in ups.items():
+                L.append(f"- upgrades of `{par}` (no separate placement): " + ", ".join(f"`{u}`" for u in lst))
+    (ROOT / "CATALOG.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

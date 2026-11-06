@@ -62,14 +62,35 @@ test('industrial zoning is rejected', () => {
   assert(msgs(CS2.validate(l, { data })).some((m) => /Industrial zoning/.test(m)));
 });
 
-test('extension without parent is an error', () => {
+test('sub-building without parent is an error', () => {
   const l = clone(sample); delete l.buildings.find((b) => b.id === 'school_pg').parent;
-  assert(msgs(CS2.validate(l, { data })).some((m) => /must name its parent/.test(m)));
+  assert(msgs(CS2.validate(l, { data })).some((m) => /is a sub-building; set "parent"/.test(m)));
+});
+
+test('sub-building beyond the game\'s max distance is an error', () => {
+  const l = clone(sample); const pg = l.buildings.find((b) => b.id === 'school_pg');
+  Object.assign(pg, { x: 100, y: 51, rotation: 0 });  // ~60 cells away; the game allows 60 m
+  assert(msgs(CS2.validate(l, { data })).some((m) => /at most 60 m/.test(m)));
+});
+
+test('sub-building on the wrong parent is an error', () => {
+  const l = clone(sample); l.buildings.find((b) => b.id === 'school_pg').parent = 'hosp';
+  assert(msgs(CS2.validate(l, { data })).some((m) => /cannot belong to/.test(m)));
 });
 
 test('in-building upgrade placed as a building is an error', () => {
   const l = clone(sample); l.buildings.push({ id: 'heli', asset: 'hospital_helipad', x: 100, y: 51 });
-  assert(msgs(CS2.validate(l, { data })).some((m) => /no footprint/.test(m)));
+  assert(msgs(CS2.validate(l, { data })).some((m) => /not placed on its own/.test(m)));
+});
+
+test('upgrade on the wrong building is an error', () => {
+  const l = clone(sample); l.buildings.find((b) => b.id === 'fire').upgrades = ['hospital_helipad'];
+  assert(msgs(CS2.validate(l, { data })).some((m) => /is not an upgrade of/.test(m)));
+});
+
+test('industrial signature building is rejected', () => {
+  const l = clone(sample); l.buildings.push({ id: 'ind_sig', asset: 'casting_fabricator', x: 100, y: 51, rotation: 0 });
+  assert(msgs(CS2.validate(l, { data })).some((m) => /industrial signature/.test(m)));
 });
 
 test('highway gives no access', () => {

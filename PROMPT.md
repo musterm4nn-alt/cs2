@@ -12,10 +12,10 @@ Before you design anything, fetch and read these:
 - Asset catalog with real in-game sizes: https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
 
 Use only asset, zone and road ids from the catalog, with their real sizes. Respect every rule in RULES.md
-(no overlaps, unique and signature buildings only once, road access, zoning depth, extensions attached to their parent).
+(no overlaps, unique and signature buildings only once, road access, zoning depth, sub-buildings within range of their parent).
 
 Present it as one standalone HTML page. Define the layout as a JSON object in the page and load the validator with
-`<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v1/validator.js"></script>`, then call
+`<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js"></script>`, then call
 `CS2.mount(layout, element)` so the page draws the layout to scale and shows the validator report. You may add your
 own explanations and visuals around it. The finished page should show zero validator errors.
 

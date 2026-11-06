@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v1/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -17,7 +17,7 @@
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v1/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -124,18 +124,22 @@
     (layout.buildings || []).forEach(function (b, i) {
       var id = checkId(b, 'building', i), a = data._byId[b.asset];
       if (!a) { err(id, 'Unknown asset "' + b.asset + '". Every building must use an id from assets.json.'); return; }
-      if (!a.placeable) { err(id, '"' + a.name + '" has no footprint of its own (in-building upgrade); list it under its parent\'s "upgrades" instead.'); return; }
+      if (!a.placeable) { err(id, '"' + a.name + '" is not placed on its own (upgrade of ' + (a.parents || []).join('/') + '); list it in its parent\'s "upgrades" instead.'); return; }
+      if (noIndustry && a.industrial) err(id, '"' + a.name + '" is an industrial signature building; industry is not allowed in this layout.');
       var rot = b.rotation || 0;
       if ([0, 90, 180, 270].indexOf(rot) < 0) { err(id, 'Rotation must be 0, 90, 180 or 270.'); return; }
       if (typeof b.x !== 'number' || typeof b.y !== 'number') { err(id, 'Building needs numeric x and y (top-left cell).'); return; }
       var fp = footprint(a, rot);
       counts[a.id] = (counts[a.id] || 0) + 1;
       items.push({ ref: id, kind: 'building', asset: a, inst: b, fp: fp, poly: rectPoly(b.x, b.y, fp.w, fp.h) });
+      var seenUp = {};
       (b.upgrades || []).forEach(function (u) {
         var ua = data._byId[u];
         if (!ua) err(id, 'Unknown upgrade "' + u + '".');
-        else if (ua.parent !== a.id) err(id, '"' + ua.name + '" is not an upgrade of "' + a.name + '".');
-        else if (ua.kind !== 'upgrade') warn(id, '"' + ua.name + '" has its own footprint; place it as a building with "parent".');
+        else if ((ua.parents || []).indexOf(a.id) < 0) err(id, '"' + ua.name + '" is not an upgrade of "' + a.name + '".');
+        else if (ua.kind === 'sub_building') err(id, '"' + ua.name + '" is a sub-building with its own lot; place it as a building with "parent": "' + id + '".');
+        else if (seenUp[u]) err(id, 'Upgrade "' + ua.name + '" listed twice.');
+        seenUp[u] = true;
       });
     });
 
@@ -150,10 +154,7 @@
     // unique buildings
     Object.keys(counts).forEach(function (aid) {
       var a = data._byId[aid];
-      if (a.unique && counts[aid] > 1) {
-        var m = '"' + a.name + '" is unique but placed ' + counts[aid] + ' times.';
-        if (a.uniqueVerified) err(aid, m); else warn(aid, m + ' (uniqueness not verified in the data)');
-      }
+      if (a.unique && counts[aid] > 1) err(aid, '"' + a.name + '" is unique but placed ' + counts[aid] + ' times.');
     });
 
     // bounds
@@ -180,17 +181,28 @@
       return roads.filter(function (r) { return overlap(poly, r.poly) > EPS; });
     }
 
+    function rectGap(p, q) {
+      var A = bbox(p), B = bbox(q);
+      var dx = Math.max(0, A.x0 - B.x1, B.x0 - A.x1), dy = Math.max(0, A.y0 - B.y1, B.y0 - A.y1);
+      return Math.hypot(dx, dy);
+    }
+    var subCount = {};
     items.forEach(function (it) {
       if (it.kind === 'building') {
         var a = it.asset, b = it.inst;
-        if (a.kind === 'extension' || a.kind === 'port_module') {
-          var parentOk = a.kind === 'port_module' ? /_port$/ : null;
+        if (a.kind === 'sub_building') {
           var p = b.parent && byRef[b.parent];
-          if (!p || p.kind !== 'building') { err(it.ref, '"' + a.name + '" must name its parent building instance in "parent".'); return; }
-          var okType = parentOk ? parentOk.test(p.asset.id) : p.asset.id === a.parent;
-          if (!okType) { err(it.ref, '"' + a.name + '" cannot attach to "' + p.asset.name + '" (needs ' + a.parent + ').'); return; }
-          var grown = rectPoly(p.inst.x - REACH, p.inst.y - REACH, p.fp.w + 2 * REACH, p.fp.h + 2 * REACH);
-          if (a.kind === 'extension' && !overlap(it.poly, grown)) err(it.ref, 'Extension must touch its parent ' + b.parent + '.');
+          if (!p || p.kind !== 'building') { err(it.ref, '"' + a.name + '" is a sub-building; set "parent" to the instance id of its ' + (a.parents || []).join(' / ') + '.'); return; }
+          if ((a.parents || []).indexOf(p.asset.id) < 0) { err(it.ref, '"' + a.name + '" cannot belong to "' + p.asset.name + '" (needs ' + (a.parents || []).join(' / ') + ').'); return; }
+          var key = b.parent + '|' + a.id;
+          subCount[key] = (subCount[key] || 0) + 1;
+          if (a.forbidMultiple && subCount[key] === 2) err(it.ref, '"' + a.name + '" can only be added once to ' + b.parent + '.');
+          if (a.maxDistanceM > 0) {
+            var gapM = rectGap(it.poly, p.poly) * data.grid.cellMeters;
+            if (gapM > a.maxDistanceM + 0.5) err(it.ref, '"' + a.name + '" is ' + Math.round(gapM) + ' m from its parent; the game allows at most ' + a.maxDistanceM + ' m.');
+          }
+          var fr = touchingRoads(frontStrip(b, it.fp)).filter(function (r) { return r.type.buildingAccess; });
+          if (!fr.length) warn(it.ref, 'Sub-building front does not touch a road; check that it can still be reached.');
           return;
         }
         if (a.placement === 'road') {
@@ -207,6 +219,9 @@
           warn(it.ref, '"' + a.name + '" must be placed at water; set "onWater": true once it is on a shoreline.');
         } else if (/^resource:/.test(a.placement) && !b.onResource) {
           warn(it.ref, '"' + a.name + '" needs ' + a.placement.slice(9) + '; set "onResource": true if the site has it.');
+        } else if (a.placement === 'track') {
+          var onTrack = roads.some(function (r) { return r.type.category === 'track' && overlap(rectPoly(b.x - REACH, b.y - REACH, it.fp.w + 2 * REACH, it.fp.h + 2 * REACH), r.poly) > EPS; });
+          if (!onTrack) warn(it.ref, '"' + a.name + '" is a rail/tram/subway building; connect it to a matching track.');
         }
       } else if (it.kind === 'zone') {
         var z = it.inst, S2 = sideStrips(z.x, z.y, z.w, z.h), sides = {};
@@ -354,5 +369,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '1.0.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.0.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });
