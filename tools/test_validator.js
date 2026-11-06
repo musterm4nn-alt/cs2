@@ -101,6 +101,12 @@ test('highway gives no access', () => {
   assert(msgs(CS2.validate(l, { data })).some((m) => /highway/.test(m)));
 });
 
+test('coverage never exceeds 100% with fractional zone sizes', () => {
+  const l = clone(sample); l.zones.push({ id: 'frac', type: 'residential_high', x: 100, y: 51, w: 5.5, h: 3.5 });
+  const r = CS2.validate(l, { data });
+  assert(Object.values(r.stats.coverage).every((v) => v <= 100), JSON.stringify(r.stats.coverage));
+});
+
 test('renderer produces an SVG and a report', () => {
   const r = CS2.validate(sample, { data });
   const svg = CS2.renderSVG(r);

@@ -261,14 +261,16 @@
         (groups[it.asset.group] = groups[it.asset.group] || []).push({ cx: it.inst.x + it.fp.w / 2, cy: it.inst.y + it.fp.h / 2, r: rng / data.grid.cellMeters });
       });
       Object.keys(groups).forEach(function (g) {
-        var covered = 0;
+        var covered = 0, sampled = 0;
         zoneItems.forEach(function (z) {
+          // sample the centre of each whole or partial cell; count samples and hits the same way (fractional zones)
           for (var x = 0; x < z.inst.w; x++) for (var y = 0; y < z.inst.h; y++) {
-            var px = z.inst.x + x + 0.5, py = z.inst.y + y + 0.5;
+            var px = z.inst.x + Math.min(x + 0.5, z.inst.w), py = z.inst.y + Math.min(y + 0.5, z.inst.h);
+            sampled++;
             if (groups[g].some(function (s) { return Math.hypot(px - s.cx, py - s.cy) <= s.r; })) covered++;
           }
         });
-        stats.coverage[g] = Math.round(covered / totalCells * 100);
+        stats.coverage[g] = Math.round(covered / sampled * 100);
       });
       ['fire_rescue', 'police', 'healthcare', 'education', 'parks'].forEach(function (g) {
         if (!(g in stats.coverage)) { stats.coverage[g] = 0; warn(g, 'No ' + g.replace('_', ' & ') + ' building with a service range in the layout.'); }
@@ -369,5 +371,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.0.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.0.1', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });
