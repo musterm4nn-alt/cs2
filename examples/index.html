@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 Layout Checker</title>
+<style>
+  :root { --bg: #ffffff; --fg: #212529; --muted: #868e96; --border: #dee2e6; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16181b; --fg: #e9ecef; --muted: #adb5bd; --border: #343a40; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 8px 0 4px; }
+  p { color: var(--muted); margin: 0 0 12px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 180px; font: 12px/1.4 ui-monospace, monospace;
+             background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+  button { margin: 8px 0 16px; padding: 6px 14px; font: inherit; border-radius: 6px; border: 1px solid var(--border);
+           background: #1c7ed6; color: #fff; cursor: pointer; }
+  .cs2-report { background: #fff; border-radius: 6px; padding: 4px 10px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CS2 layout checker</h1>
+  <p>Paste a layout JSON (format in RULES.md) and press Check. Hover a shape to see what it is.</p>
+  <textarea id="src" spellcheck="false"></textarea>
+  <button id="go">Check</button>
+  <div id="app"></div>
+</main>
+<script src="../validator.js"></script>
+<script>
+  const src = document.getElementById('src');
+  const run = () => {
+    let layout;
+    try { layout = JSON.parse(src.value); } catch (e) { document.getElementById('app').textContent = 'Invalid JSON: ' + e.message; return; }
+    CS2.mount(layout, document.getElementById('app')).catch(() => {});
+  };
+  document.getElementById('go').onclick = run;
+  fetch('sample-layout.json').then(r => r.text()).then(t => { src.value = t; run(); });
+</script>
+</body>
+</html>

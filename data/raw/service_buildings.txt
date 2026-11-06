@@ -1,0 +1,367 @@
+# Source: https://cs2.paradoxwikis.com/Service_buildings (CC BY-NC-SA 3.0), extracted 2026-11-06.
+# Format: "## <Category> :: <columns>" then one row per building. After " || " come stats from the
+# wiki's second table (range/capacity in metres or units, jobs = workplaces, noise/air/ground pollution).
+# Rows with an empty size are in-building upgrades. Rows whose name starts with a parent building's
+# name (or that directly follow it) are upgrades/extensions of that building.
+## Post :: Name|Size (cells)|Requirements|Upkeep per month|Post vans|Post trucks|Mail storage capacity|Mailbox capacity|Sorting speed
+Small Post Office|3×4|Basic Communication Services|7.5K|4|0|25000|200| || range=1000.0;capacity=5000.0;jobs=6;noise=2000
+Mail Storage Extension|||3.0K|0|0|10000|0| || jobs=2;noise=500
+Post Office|10×8|Basic Communication Services|22.5K|20|0|100000|500| || range=2000.0;capacity=15000.0;jobs=40;noise=5000
+Post Office Post Van Garage|7×6||3.0K|10|0|0|0| || jobs=20;noise=2500
+Post Office Mail Storage Extension|6×4||2.5K|0|0|25000|0| || jobs=10;noise=2500
+Post Sorting Facility|28×28|Post Sorting Facility|40.0K|0|5|500000|0|50000 / month || jobs=80;noise=20000
+Post Sorting Facility Automated Sorting|||5.0K|0|0|0|0|25000 / month || jobs=10
+Post Sorting Facility Mail Storage Extension|17×11||5.0K|0|0|250000|0| || jobs=20;noise=5000
+Post Sorting Facility Extra Loading Ramps|||5.0K|0|5|0|0| || jobs=15;noise=5000
+## Telecom :: Name|Size (cells)|Requirements|Upkeep per month|Range|Network Capacity|Penetrate Terrain
+Radio Mast|4×3|Basic Communication Services|5.0K|1 km|3000 GBit / s|False || jobs=10;noise=2500
+Radio Mast Bandwidth Increase|||1.5K|0 m|1500 GBit / s|False
+Radio Mast Wireless Network Antenna|||750|250 m|0 GBit / s|False
+Server Farm|24×18|Server Farm|20.0K|2 km|30000 GBit / s|True || jobs=40;noise=20000
+Server Farm Fiber Optic Cable|||5.0K|500 m|0 GBit / s|False
+Server Farm Server Upgrade|||5.0K|0 m|10000 GBit / s|False || jobs=8
+Telecom Tower|7×7|Telecom Tower|12.5K|5 km|20000 GBit / s|False || jobs=30;noise=10000
+Satellite Uplink|7×4|Satellite Uplink|160.0K|0 m|0 GBit / s|True || jobs=30;noise=5000
+## Education :: Name|Size (cells)|Requirements|Upkeep per month|Attractiveness|Has companies|Student capacity|Level|graduationModifier|Patient capacity|treatmentBonus|Max health|treatDiseases|treatInjuries|Leisure
+Small Elementary School|9×6|Basic Education Services|5.0K|||400|Elementary School|0.0|||||| || range=1500.0;capacity=7500.0;jobs=20;noise=3500
+Small Elementary School Extension Wing|3×9||1000|||100|Elementary School|0.0|||||| || jobs=5;noise=1000
+Small Elementary School Gymnasium|6×11|Sports Parks|2.0K|1||0||0.0||||||+1 Outdoor Recreation || jobs=5
+Elementary School|18×8|Basic Education Services|12.5K|||1000|Elementary School|0.0|||||| || range=3500.0;capacity=15000.0;jobs=50;noise=7500
+Elementary School Childrens Clinic|6×8||5.0K|||0||0.0|||||| || jobs=15
+Elementary School Extension Wing|||5.0K|||500|Elementary School|0.0|||||| || jobs=25;noise=2500
+Elementary School Playground|6×4|Large Parks|2.5K|1||0||0.0||||||+1 Outdoor Recreation || noise=2500
+City Elementary School|6×8|Basic Education Services|17.5K|||1500|Elementary School|0.0|||||| || range=3500.0;capacity=15000.0;jobs=50;noise=7500
+City Elementary School Extension Floors|||10.0K|||500|Elementary School|0.0|||||| || jobs=20;noise=3500
+City Elementary School Courtyard Playground|||10.0K|||0|Elementary School|0.0|||||| || jobs=4;noise=2500
+Small High School|12×8|Basic Education Services|11.25K|||400|High School|0.0|||||| || jobs=20;noise=3750
+Small High School Extension Wing|6×6||3.0K|||100|High School|0.0|||||| || jobs=5;noise=1000
+High School|22×16|Basic Education Services|22.5K|||800|High School|0.0|||||| || jobs=80;noise=7500
+High School Sports Park|13×24|Large Sports Parks|1.5K|10||0||0.0||||||+10 Outdoor Recreation || jobs=5;noise=2000
+High School Extension Wing|||10.0K|||400|High School|0.0|||||| || jobs=40;noise=3500
+High School Library|||10.0K|||0|High School|0.1|||||| || jobs=16
+High School Sports Field|26×20|Large Sports Parks|7.5K|25|True|0||0.0||||||+20 Outdoor Recreation || jobs=16;noise=5000
+City High School|12×6|Basic Education Services|22.5K|||800|High School|0.0|||||| || jobs=40;noise=7500
+City High School Extension Floors|||10.0K|||400|High School|0.0|||||| || jobs=20;noise=3500
+City High School Rooftop Sports Park||Sports Parks|7.5K|||0||0.0||||||+40 Outdoor Recreation || jobs=8;noise=5000
+College|22×16|College|75.0K|||10000|College|0.0|||||| || jobs=100;noise=10000
+College Extension Wing|||27.5K|||2500|College|0.0|||||| || jobs=50;noise=3500
+College Library|10×8||25.0K|||0|College|0.15|||||| || jobs=24
+University|40×28|University|100.0K|||15000|University|0.0|||||| || jobs=170;noise=10000
+University Library|12×12||47.5K|||0|University|0.15|||||| || jobs=50
+University Extension Wing|||37.5K|||2500|University|0.0|||||| || jobs=60;noise=3500
+University Park|18×18|Large Parks|20.0K|10||0||0.0||||||+20 Outdoor Recreation
+Technical University|53×38|Technical University|80.0K|||15000|University|0.0|||||| || jobs=150;noise=10000
+Technical University Extension Wing|||57.5K|||2500|University|0.0|||||| || jobs=50;noise=3500
+Technical University Workshop Upgrade|||50.0K|||0|University|0.15|||||| || jobs=40;noise=5000
+Medical University|62×18|Medical University|120.0K|||15000|University|0.0|||||| || jobs=150;noise=10000
+Medical University Research Facilities|16×8||75.0K|||0|University|0.15|||||| || jobs=70;noise=3500
+Medical University Extension Wing|||57.5K|||2500|University|0.0|||||| || jobs=75;noise=3500
+Medical University Practice Clinic|15×7||50.0K||||||100|25|100|True|True| || jobs=40;noise=3500
+## Research :: Name|Size (cells)|Requirements|Upkeep per month
+Radio Telescope|8×8|Radio Telescope|160.0K || jobs=30
+Geological Research Center|12×12|Geological Research Center|115.0K || jobs=64;noise=15000
+Large Hadron Collider|54×64|Large Hadron Collider|200.0K || jobs=100
+## Electricity :: Name|Size (cells)|Requirements|Upkeep per month|Goods consumption|Electricity production|maxWind|maxGroundWater|Battery capacity|activationThreshold
+Hydroelectric Power Plant|6×9||50.0K||varies|||| || jobs=18;noise=50000
+Small Transformer Station|3×4|Basic Electricity Services|3.0K||||||
+Transformer Station|6×7|Basic Electricity Services|3.0K|||||| || noise=5000
+Windmill|3×3|Basic Electricity Services|2.5K||2 MW|0.4|||
+Small Wind Turbine|8×8|Basic Electricity Services|5.0K||4 MW|0.4|||
+Wind Turbine|15×15|Basic Electricity Services|7.5K||6 MW|0.4||| || noise=20000
+Wind Turbine Advanced Rotor System|||2.5K||2.5 MW|0.4|||
+Wind Turbine Battery Extension|||1000||4 MW|||10 MWh|
+Wind Turbine Solar Assisted|||1.5K||2 MW||||
+Small Coal Power Plant|14×16|Basic Electricity Services|5.0K|20000 Coal|20 MW|||| || jobs=37;noise=30000;air=30000;ground=30000
+Gas Power Plant|27×38|Gas Power Plant|300.0K|1000 Petrochemicals|250 MW|||| || jobs=100;noise=10000;air=10000;ground=10000
+Gas Power Plant Exhaust Filter|||50.0K|||||| || air=-50%
+Gas Power Plant Additional Turbine|||100.0K|500 Petrochemicals|100 MW|||| || jobs=25;noise=3000;air=3000;ground=3000
+Gas Power Plant Advanced Furnace|||40.0K|Petrochemicals: ×85%||||| || jobs=20
+Gas Power Plant Fuel Storage Extension|9×9||75.0K|||||| || jobs=10;noise=5000;air=5000;ground=5000
+Emergency Battery Station|22×10|Emergency Battery Station|25.0K||200 MW|||500 MWh| || jobs=32;noise=10000
+Emergency Battery Station Additional Battery Bank|||3.75K||100 MW|||250 MWh| || jobs=8;noise=5000
+Emergency Battery Station Diesel Generator|5×4||4.25K|500 Petrochemicals||||| || noise=10000;air=15000
+Coal Power Plant|50×40|Coal Power Plant|75.0K|150000 Coal|300 MW|||| || jobs=140;noise=100000;air=100000;ground=100000
+Coal Power Plant Exhaust Filter|||25.0K|||||| || air=-50%
+Coal Power Plant Additional Turbine Building|||25.0K|50000 Coal|100 MW|||| || jobs=35;noise=50000;air=50000;ground=50000
+Coal Power Plant Advanced Furnace|||30.0K|Coal: ×85%||||| || jobs=20
+Coal Power Plant Coal Storage Yard|25×33||12.5K|||||| || jobs=10;noise=25000;air=25000;ground=25000
+Geothermal Power Plant|44×35|Geothermal Power Plant|150.0K||150 MW||4000|| || jobs=70;noise=20000;air=15000;ground=15000
+Geothermal Power Plant Additional Transformer Station|4×4||1.5K|||||| || noise=7500
+Geothermal Power Plant Additional Turbine|||100.0K||100 MW||0|| || jobs=14;noise=1000;air=7500;ground=7500
+Geothermal Power Plant Binary Cycle Power Station|||37.5K||50 MW||0|| || jobs=12;air=5000
+Solar Power Plant|36×69|Solar Power Plant|150.0K||200 MW (15 MW from batteries)|||50 MWh| || jobs=32
+Solar Power Plant Additional Transformer Station|5×4||1.5K||||||
+Solar Power Plant Advanced Tracking System|||75.0K||100 MW||||
+Solar Power Plant Backup Battery|16×6||10.5K||50 MW|||50 MWh| || jobs=8
+Nuclear Power Plant|72×41|Nuclear Power Plant|500.0K||750 MW|||| || jobs=300;noise=150000
+## Fire :: Name|Size (cells)|Requirements|Upkeep per month|Fire engines|Fire helicopters|disasterResponseCapacity|fire vehicleEfficiency
+Fire House|5×5|Basic Fire & Rescue Services|10.0K|4|0|0|1.0 || range=5000.0;capacity=25000.0;jobs=12;noise=5000
+City Fire House|3×4|Basic Fire & Rescue Services|12.0K|6|0|0|1.0 || range=5000.0;capacity=25000.0;jobs=10;noise=6000
+Fire House Garage Extension|||5.5K|4|0|0| || jobs=8;noise=2500
+Firewatch Tower|2×2|Firewatch Tower|12.5K||||
+Fire Station|14×18|Fire Station|117.5K|10|0|0|1.0 || range=10000.0;capacity=100000.0;jobs=120;noise=7500
+Fire Station Disaster Response Unit|7×7||37.5K|0|0|5| || jobs=40;noise=2500
+Fire Station Garage Extension|||22.5K|5|0|0| || jobs=30;noise=2500
+Fire Station Helipad|||17.5K|0|1|0| || jobs=8;noise=7500
+Fire Station Training Facilities|||38.5K|0|0|0|2.0 || jobs=40;noise=2500
+Firefighting Helicopter Depot|11×16|Firefighting Helicopter Depot|72.5K|0|5|0|1.0 || jobs=48;noise=25000
+## Disaster Control :: Name|Size (cells)|Requirements|Upkeep per month|Goods consumption|Shelter Capacity|Evacuation Buses
+Small Emergency Shelter|1×2|Small Emergency Shelter|7.5K|20000 Food|1000|0 || range=1500.0;capacity=5000.0
+Small Emergency Shelter Advanced Air Recycling|||600||500|0
+Small Emergency Shelter Extra Consumables|||1.75K|||
+Early Disaster Warning System|10×7|Early Disaster Warning System|120.0K||| || jobs=40
+Large Emergency Shelter|5×7|Large Emergency Shelter|30.0K|500000 Food|25000|20 || range=3000.0;capacity=50000.0;jobs=28
+## Garbage Management :: Name|Size (cells)|Requirements|Upkeep per month|Electricity production|productionPerUnit|Garbage storage capacity|Garbage trucks|Garbage processing capacity
+Landfill|17×15|Basic Garbage Management Services|15.0K|||100 t|20|100 t/month || jobs=30;noise=40000;air=20000;ground=20000
+Landfill Garbage Truck Depot|||7.5K|||0 kg|10|0 kg/month || jobs=10;noise=10000
+Landfill Hazardous Waste Collection Point|12×8||3.0K|||0 kg|0|20 t/month || jobs=12;noise=5000;air=5000;ground=5000
+Landfill Waste Recycling Unit|||15.0K||||| || jobs=16;air=-50%;ground=-50%
+Incineration Plant|25×27|Incinerator Plant|105.0K|40 MW|7.5|3 kt|50|3000 t/month || jobs=60;noise=40000;air=40000;ground=40000
+Incineration Plant Extra Incinerator Furnace|||50.0K|20 MW|7.5|0 kg|0|1500 t/month || jobs=16;noise=20000;air=20000;ground=20000
+Incineration Plant Garbage Truck Depot|||20.0K|||0 kg|25|0 kg/month || jobs=25;noise=10000
+Incineration Plant Storage Extension|8×6||10.0K|||300 t|0|0 kg/month || jobs=10;noise=5000;air=5000;ground=5000
+Recycling Center|22×18|Recycling Center|80.0K|||1.5 kt|15|1500 t/month || jobs=60;noise=15000;air=5000;ground=10000
+Recycling Center Garbage Truck Depot|||15.0K|||0 kg|10|0 kg/month || jobs=20;noise=5000
+Recycling Center Hazardous Waste Collection Point|8×10||20.0K|||0 kg|0|250 t/month || jobs=20;noise=5000;air=5000;ground=5000
+Recycling Center Storage Extension|16×7||10.0K|||250 t|0|0 kg/month || jobs=10;noise=5000;air=5000;ground=5000
+Industrial Waste Processing Site|19×16|Industrial Waste Processing|225.0K|||50 kt|250|50000 t/month (only industrial waste) || jobs=250;noise=50000;air=50000;ground=50000
+## Healthcare :: Name|Size (cells)|Requirements|Upkeep per month|Goods consumption|Ambulances|Medical helicopters|Patient capacity|treatmentBonus|Min health|Max health|treatDiseases|treatInjuries
+Small Medical Clinic|5×5|Basic Healthcare Services|10.0K|125 Pharmaceuticals|3|0|25|15|0|100|True|True || range=2500.0;capacity=7500.0;jobs=6
+Medical Clinic|11×6|Basic Healthcare Services|20.0K|500 Pharmaceuticals|5|0|100|15|0|100|True|True || range=5000.0;capacity=15000.0;jobs=18
+Medical Clinic Ambulance Depot|||3.5K||5|0|0|0|0|100|True|True || jobs=8
+Medical Clinic Extension Wing|6×3||12.5K|100 Pharmaceuticals|0|0|25|0|0|100|True|True || jobs=8
+Hospital|23×10|Hospital|225.0K|2500 Pharmaceuticals|30|0|500|30|0|100|True|True || range=7500.0;capacity=50000.0;jobs=120
+Hospital Helipad|||17.5K||0|1|0|0|100|0|False|False || jobs=6
+Hospital Specialized Treatment Ward|||50.0K||0|0|0|0|0|100|True|True || jobs=40
+Hospital Trauma Center|||40.0K||0|0|0|15|0|0|False|False || jobs=30
+Disease Control Center|25×20|Disease Control Center|175.0K|1250 Pharmaceuticals|15|2|250|45|0|35|True|False || jobs=100
+Health Research Institute|21×9|Health Research Institute|80.0K||0|0|0|0|0|100|False|False || jobs=100
+## Deathcare :: Name|Size (cells)|Requirements|Upkeep per month|Attractiveness|Leisure|Hearses|Storage Capacity|Processing Capacity
+Small Cemetery|14×6|Basic Healthcare Services|12.0K||+2 Indoor Recreation|8|1500|0.0
+Small Cemetery Additional Burial Lot|6×6||4.0K|||0|500|0.0
+Small Columbarium|3×3|1 Crematorium|3.0K|||0|250|0.0
+Cemetery|16×25|Basic Healthcare Services|27.5K||+3 Indoor Recreation|15|5000|0.0 || jobs=18
+Cemetery Temple|8×8||5.5K||||| || jobs=6
+Cemetery Columbarium|8×8|1 Crematorium|9.0K|||0|1000|0.0 || jobs=8
+Cemetery Mausoleum|6×6||3.5K|20|||| || jobs=3
+Crematorium|8×10|Crematorium|22.5K|||10|20|100.0 || jobs=20;noise=5000;air=2500
+Crematorium Additional Incinerator|||12.5K|||0|0|50.0 || jobs=5
+Crematorium Hearse Garage|4×6||5.0K|||5|0|0.0 || jobs=10
+Crematorium Refrigerator Expansion|||6.0K|||0|25|0.0 || jobs=6
+## Park maintenance :: Name|Size (cells)|Requirements|Upkeep per month|Maintenance types|Maintenance vehicles|maintenance vehicleEfficiency
+Park Maintenance Depot|7×10|Park Maintenance|20.0K|Park|10|1.0 || jobs=30;noise=5000
+Park Maintenance Depot Extra Garage|6×5||6.25K||5| || jobs=10;noise=1500
+Park Maintenance Depot Supply Storage|||5.5K||0|0.5 || jobs=8;noise=1500
+## Parks and tourist attractions :: Name|Size (cells)|DLC|Requirements|Upkeep per month|Attractiveness|Comfort|Has companies|maintenancePool|Leisure
+Tiny Park|1×1||Basic Parks & Recreation Services|400|1|||250|+1 Outdoor Recreation
+Mini Park|1×1||Basic Parks & Recreation Services|400|1|||250|+1 Outdoor Recreation
+Urban Parkette|2×1||Basic Parks & Recreation Services|600|1|||250|+1 Outdoor Recreation
+Canopy-Covered Parkette|2×1||Basic Parks & Recreation Services|600|1|||250|+1 Outdoor Recreation
+Small Playground|2×2||Basic Parks & Recreation Services|1000|1|||500|+1 Outdoor Recreation || range=2000.0;capacity=600.0
+Square Pocket Park|2×2||Basic Parks & Recreation Services|1000|1|||250|+1 Outdoor Recreation
+Urban Pocket Park|2×2||Basic Parks & Recreation Services|1000|1|||250|+1 Outdoor Recreation
+Tiny City Park|2×3||Basic Parks & Recreation Services|1.5K|1|||250|+1 Outdoor Recreation || range=2250.0;capacity=700.0
+Canopy-Covered Pocket Park|4×1||Basic Parks & Recreation Services|1000|1|||250|+1 Outdoor Recreation
+Wide Pocket Park|6×1||Basic Parks & Recreation Services|1.5K|1|||250|+1 Outdoor Recreation
+Modern Pocket Park|1×4||Basic Parks & Recreation Services|1000|1|||250|+1 Outdoor Recreation
+Canopy-Covered Corridor Park|1×6||Basic Parks & Recreation Services|1.5K|1|||250|+1 Outdoor Recreation
+Dog Park|4×3||Basic Parks & Recreation Services|2.0K|1|||500|+2 Outdoor Recreation || range=3500.0;capacity=800.0
+Small Park|4×4||Basic Parks & Recreation Services|2.0K|1|||250|+1 Outdoor Recreation || range=2500.0;capacity=800.0
+Bicycle Park|4×4||Basic Parks & Recreation Services|2.0K|1|50.0||250|+1 Outdoor Recreation
+Ring Park|5×5||Basic Parks & Recreation Services|3.0K|3|||250|+2 Outdoor Recreation || range=3200.0;capacity=1000.0
+Small Plaza|6×6||Basic Parks & Recreation Services|4.0K|5|||250|+2 Outdoor Recreation || range=4000.0;capacity=1200.0
+Campfire Site|8×14||Basic Parks & Recreation Services|6.0K|10|||500|+3 Outdoor Recreation || range=6000.0;capacity=1600.0
+Large Campfire Site|11×10||Basic Parks & Recreation Services|6.0K|10|||500|+3 Outdoor Recreation
+Small Lighthouse|1×1|Bridges and Ports|Basic Parks & Recreation Services|2.0K|1|||250|+1 Outdoor Recreation
+Lighthouse|1×1|Bridges and Ports|Basic Parks & Recreation Services|4.0K|5|||250|+2 Outdoor Recreation
+Large Playground|3×4||Large Parks|2.5K|5|||500|+5 Outdoor Recreation || range=2500.0;capacity=800.0
+Passage Park|4×12||Large Parks|3.36K|4|||400|+2 Outdoor Recreation || range=2000.0;capacity=1000.0
+Hedge Park|8×8||Large Parks|6.75K|8|||400|+3 Outdoor Recreation || range=2400.0;capacity=1250.0
+Large City Park|10×8||Large Parks|8.5K|10|||500|+3 Outdoor Recreation || range=3000.0;capacity=1600.0
+Multipurpose Park|8×16||Large Parks|10.0K|13|||450|+5 Outdoor Recreation || range=3600.0;capacity=1800.0
+Large Plaza|12×16||Large Parks|12.5K|15|||500|+5 Outdoor Recreation || range=4000.0;capacity=2000.0
+Terrace Plaza|6×8||Large Parks|14.0K|20||True|625|+7 Outdoor Recreation
+Winding Park|12×12||Large Parks|14.0K|20|||625|+7 Outdoor Recreation
+Business Plaza|8×10||Large Parks|18.0K|25|||750|+9 Outdoor Recreation
+Bouncy Castle Park|7×10|Bridges and Ports|Large Parks|6.5K|10|||500|+5 Outdoor Recreation
+Merry Mare-Go-Round Carousel Park|6×10|Bridges and Ports|Large Parks|7.5K|10|||500|+3 Outdoor Recreation
+Jetset Jubilee Carousel Park|6×10|Bridges and Ports|Large Parks|8.5K|12|||500|+5 Outdoor Recreation
+Parkside Cafe|5×10|Bridges and Ports|Large Parks|2.0K|8||True|500|+2 Indoor Recreation
+The Parkview Eatery|6×10|Bridges and Ports|Large Parks|4.0K|10||True|500|+4 Indoor Recreation
+The Pavillion Restaurant|7×10|Bridges and Ports|Large Parks|5.0K|12||True|750|+6 Indoor Recreation
+Haunted House Park|7×10|Bridges and Ports|Large Parks|10.0K|15|||1500|+10 Indoor Recreation
+Old Ferris Ride Park|6×10|Bridges and Ports|Large Parks|8.5K|12|||500|+5 Outdoor Recreation
+Spin Vista Park|10×10|Bridges and Ports|Large Parks|12.5K|20|||1500|+15 Outdoor Recreation
+Large Lighthouse|1×1|Bridges and Ports|Large Parks|8.5K|10|||500|+3 Outdoor Recreation
+Tennis Court|4×7||Sports Parks|2.5K|5|||1000|+5 Outdoor Recreation || range=3500.0;capacity=800.0
+Outdoor Gym|2×2||Sports Parks|3.0K|5|||1000|+5 Outdoor Recreation || range=3500.0;capacity=1000.0
+Skate Park|8×4||Sports Parks|3.0K|5|||1000|+5 Outdoor Recreation || range=3500.0;capacity=1000.0
+Basketball Court|3×4||Sports Parks|2.5K|5|||1000|+5 Outdoor Recreation || range=3500.0;capacity=800.0
+American Football Field|20×12||Large Sports Parks|15.0K|25||True|2000|+20 Outdoor Recreation || range=4000.0;capacity=4000.0;jobs=20
+Soccer Field|12×15||Large Sports Parks|15.0K|25|||2000|+20 Outdoor Recreation || range=4000.0;capacity=4000.0;jobs=20
+Community Pool|7×7||Large Sports Parks|8.0K|15|||2000|+20 Summer Season Recreation || range=3500.0;capacity=2000.0;jobs=10
+Observation Tower|19×14||Tourist Attractions|160.0K|40||True|3000|+75 Indoor Recreation || range=7500.0;capacity=6000.0;jobs=40
+Bronze Statue|9×9||Tourist Attractions|160.0K|50|||3000|+25 Outdoor Recreation || range=5000.0;capacity=5000.0;jobs=20
+Water Park|12×6||Tourist Attractions|40.0K|75|||3000|+25 Summer Season Recreation || range=5000.0;capacity=3000.0;jobs=28
+Medieval Castle|26×24|Paradox account reward|Tourist Attractions|240.0K|85|||3000|+20 Indoor Recreation || range=7500.0;capacity=4000.0;jobs=30
+Old Lighthouse|2×2|Bridges and Ports|Tourist Attractions|25.0K|75|||3000|+25 Outdoor Recreation
+Old Lighthouse Lighthouse Restaurant|3×4|Bridges and Ports||20.0K|20||True||+10 Meals
+Old Lighthouse Lighthouse Museum|8×3|Bridges and Ports||20.0K|20||||+10 Indoor Recreation
+## Landmarks :: Name|Size (cells)|DLC|Upkeep per month|Attractiveness|Leisure|Has companies|maintenancePool
+Bell Tower of Xi'an|16×16|Landmark Buildings|280.0K|125|+100 Outdoor Recreation||4000 || range=10000.0;capacity=15000.0;jobs=40
+Botanical Garden|12×16|Landmark Buildings|80.0K|125|+100 Outdoor Recreation||4000 || range=10000.0;capacity=15000.0;jobs=40
+Ferris Wheel|20×16|Landmark Buildings|560.0K|110|+75 Indoor Recreation||2500 || range=6000.0;capacity=12000.0;jobs=18
+Fountain Plaza|14×14|CS1 owner reward|80.0K|100|+50 Outdoor Recreation||4000 || range=7500.0;capacity=10000.0;jobs=12
+Grand Hotel|14×10|Landmark Buildings|80.0K|115|+75 Indoor Recreation|True|2500 || range=10000.0;capacity=15000.0;jobs=50
+Namdaemun|14×14|Landmark Buildings|280.0K|125|+100 Outdoor Recreation||4000 || range=10000.0;capacity=15000.0;jobs=40
+National Diet Building|33×31|Landmark Buildings|280.0K|125|+100 Outdoor Recreation||4000 || range=10000.0;capacity=15000.0;jobs=60
+National Gallery of Art|42×18|Landmark Buildings|160.0K|120|+100 Indoor Recreation||3000 || range=7500.0;capacity=16000.0;jobs=50
+Notre-Dame|10×25|Landmark Buildings|280.0K|175|+125 Outdoor Recreation||3500 || range=7500.0;capacity=20000.0;jobs=40
+Näsinneula|18×15|Landmark Buildings|240.0K|115|+75 Indoor Recreation|True|2000 || range=6000.0;capacity=12000.0;jobs=46
+## Police :: Name|Size (cells)|Requirements|Upkeep per month|Patrol Cars|Police Helicopters|Jail Capacity|Purposes|Prison Vans|Prison capacity
+Small Police Station|5×5|Basic Police & Administration Services|15.0K|6|0|10|Emergency, Patrol|| || range=5000.0;capacity=20000.0;jobs=8;noise=4000
+Police Station|12×7|Basic Police & Administration Services|19.0K|6|0|25|Emergency, Patrol|| || range=5000.0;capacity=20000.0;jobs=18;noise=5000
+Police Station Garage Extension|||9.0K|6|0|0|Emergency, Patrol|| || jobs=8;noise=2500
+City Police Station|6×6|Basic Police & Administration Services|25.0K|16|0|40|Emergency, Patrol|| || range=5000.0;capacity=25000.0;jobs=20;noise=6000
+City Police Station Helipad|||17.5K|0|1|0|Emergency, Patrol|| || jobs=6;noise=10000
+Police Headquarters|18×20|Police Headquarters|155.0K|20|0|100|Emergency, Patrol|| || range=10000.0;capacity=100000.0;jobs=120;noise=20000
+Police Headquarters Extra Jails|6×8||30.0K|0|0|50|Emergency, Patrol|| || jobs=15;noise=5000
+Police Headquarters Garage Extension|||15.0K|10|0|0|Emergency, Patrol|| || jobs=20;noise=5000
+Police Headquarters Helipad|||17.5K|0|1|0|Emergency, Patrol|| || jobs=6;noise=10000
+Prison|26×24|Prison|100.0K|||||10|500 || jobs=80;noise=40000
+Prison Wing|14×14||40.0K|||||0|50 || jobs=30;noise=10000
+Prison Library and Recreation Center|||60.0K|||||0|0 || jobs=32;noise=10000
+Central Intelligence Bureau|34×34|Central Intelligence Bureau|160.0K|25|0|100|Intelligence|| || jobs=200
+## Administration :: Name|Size (cells)|Requirements|Upkeep per month
+Welfare Office|15×16|Welfare Office|22.5K || range=4000.0;capacity=20000.0;jobs=50;noise=10000
+City Hall|16×20|City Hall|80.0K || jobs=50
+City Hall Court|||20.0K || jobs=30
+City Hall Planning Offices|||27.5K || jobs=30
+Central Bank|28×20|Central Bank|120.0K || jobs=80
+## Road :: Name|Size (cells)|DLC|Requirements|Upkeep per month|Vehicles|Comfort|Has companies|Vehicle fuel
+Bus Depot|18×9||Basic Transportation Services|31.0K|25|||Fuel || jobs=40;noise=10000;air=2500
+Bus Depot Electric Bus Maintenance||||14.5K|0|||Electricity || jobs=12;noise=5000
+Bus Depot Extra Garage|7×7|||15.0K|10||| || jobs=10;noise=2000
+Small Bus Station|4×6||Bus Depot|14.0K||40.0|| || noise=5000
+Small Bus Station Station Services|3×2|||5.0K||20.0|True| || jobs=2;noise=500
+City Bus Station|8×10||Bus Depot|21.0K||40.0|True|
+Bus Station|13×13||Bus Depot|28.0K||50.0|True| || jobs=28;noise=10000
+Small Taxi Depot|2×6||Basic Transportation Services|3.5K|8|||Fuel
+Taxi Depot|9×7||Basic Transportation Services|10.0K|25|||Fuel || jobs=25;noise=5000
+Taxi Depot Taxi Garage|3×3|||3.2K|10||| || jobs=10;noise=1000
+Small Storage Yard|3×14|Bridges and Ports|Basic Transportation Services|3.75K||||
+Medium Storage Yard|9×14|Bridges and Ports|Basic Transportation Services|9.37K||||
+Large Storage Yard|9×23|Bridges and Ports|Basic Transportation Services|18.75K||||
+## Train :: Name|Size (cells)|Requirements|Upkeep per month|Vehicles|Comfort|Has companies|Vehicle fuel
+Railway Depot|34×15|Train|12.0K|8|||FuelAndElectricity
+Railway Depot Extra Tracks|34×12||10.0K|8|||
+Rail Yard|44×28|Train|15.0K|10|||FuelAndElectricity || jobs=30;noise=30000
+Small Train Station|25×4|Rail Yard or Railway Depot + train track|7.5K||10.0|True| || noise=15000
+Medium Train Station|25×5|Rail Yard or Railway Depot + train track|10.0K||30.0|True| || jobs=2;noise=15000
+Cargo Train Terminal|38×17|Rail Yard or Railway Depot + train track|15.0K|||| || jobs=32;noise=25000
+Cargo Train Terminal Storage Warehouse|16×12||6.0K|||| || jobs=12;noise=15000
+Train Station|25×14|Rail Yard or Railway Depot + train track|18.5K||50.0|True| || jobs=20;noise=15000
+Terminus Station|15×30|Rail Yard or Railway Depot + train track|18.5K||50.0|True|
+Cargo Transfer Station|34×20|Rail Yard or Railway Depot + train track|20.0K||||
+Cargo Transfer Station Storage Warehouse with Extra Tracks|26×7||12.5K||||
+## Tram :: Name|Size (cells)|Requirements|Upkeep per month|Vehicles|Comfort|Vehicle fuel
+Tram Depot|19×17|Tram|11.5K|10||Electricity || jobs=20;noise=15000
+Tram Junction Station|6×6|Tram Depot + tram track|14.0K||40.0|
+Tram Parallel Station|6×6|Tram Depot + tram track|14.0K||40.0|
+Tram Loop Station|6×6|Tram Depot + tram track|14.0K||40.0|
+## Subway :: Name|Size (cells)|Requirements|Upkeep per month|Vehicles|Comfort|Has companies|Vehicle fuel
+Terminal Subway Yard|4×23|Subway|12.0K|5|||Electricity
+Terminal Subway Yard Maintenance Hall|4×23||12.0K|0|||
+Terminal Subway Yard Extra Tracks|4×23||4.0K|2|||
+Terminal Subway Yard Extra Through Tracks|23×4||4.0K|2|||
+Subway Yard|44×20|Subway|24.0K|10|||Electricity || jobs=30;noise=25000
+Subway Yard Maintenance Hall|30×7||17.0K|0||| || jobs=18;noise=7500
+Small Overground Subway Station|19×4|Subway Yard + subway track|5.0K||30.0|True| || noise=5000
+Overground Subway Station|21×6|Subway Yard + subway track|10.0K||50.0|True| || noise=10000
+Underground Subway Station|3×2|Subway Yard + subway track|20.0K||50.0|| || noise=5000
+Small Elevated Subway Station|19×1|Subway Yard + subway track|10.0K||40.0|| || noise=10000
+Elevated Subway Station|12×7|Subway Yard + subway track|15.0K||50.0|True| || jobs=10;noise=10000
+## Water :: Name|Size (cells)|DLC|Requirements|Upkeep per month|Comfort|Has companies
+Harbor|38×11||Water|30.0K|50.0|True || jobs=50;noise=25000
+Cargo Harbor|56×33||Water|33.5K|| || jobs=75;noise=100000
+Cargo Harbor Warehouses|19×13|||12.5K|| || jobs=12;noise=25000
+Small Port|4×4|Bridges and Ports|Water|12.5K||
+Small Auxiliary Port Gate|2×2|Bridges and Ports|10,000,000 cargo transported by ship|2.5K||
+Medium Auxiliary Port Gate|3×3|Bridges and Ports|30,000,000 cargo transported by ship|5.0K||
+Passenger Terminal|6×11|Bridges and Ports|60,000,000 cargo transported by ship|25.0K|50.0|
+Employee Canteen|6×3|Bridges and Ports|30,000,000 cargo transported by ship|8.75K||
+Port Security|4×4|Bridges and Ports|60,000,000 cargo transported by ship|14.25K||
+Emergency Response|4×3|Bridges and Ports|50,000,000 cargo transported by ship|12.5K||
+Container Crane|4×4|Bridges and Ports||15.0K||
+Container Crane (Striped)|4×4|Bridges and Ports|10,000,000 cargo transported by ship|15.0K||
+Intermodal Train Terminal|42×6|Bridges and Ports|Rail Yard or Railway Depot; 50,000,000 cargo transported by ship|20.0K||
+Small Cargo Container Yard|14×4|Bridges and Ports||3.75K||
+Medium Cargo Container Yard|21×4|Bridges and Ports|20,000,000 cargo transported by ship|6.87K||
+Large Cargo Container Yard|42×4|Bridges and Ports|40,000,000 cargo transported by ship|13.75K||
+Small Cargo Warehouse|14×10|Bridges and Ports||8.75K||
+Medium Cargo Warehouse|21×10|Bridges and Ports|20,000,000 cargo transported by ship|12.5K||
+Large Cargo Warehouse|42×10|Bridges and Ports|40,000,000 cargo transported by ship|25.0K||
+Small Tank Farm|2×2|Bridges and Ports||300||
+Medium Tank Farm|6×8|Bridges and Ports|20,000,000 cargo transported by ship|3.75K||
+Large Tank Farm|10×6|Bridges and Ports|40,000,000 cargo transported by ship|4.7K||
+Small Bulk Storage Yard|5×8|Bridges and Ports||2.2K||
+Medium Bulk Storage Yard|8×26|Bridges and Ports|20,000,000 cargo transported by ship|11.0K||
+Large Bulk Storage Yard|17×48|Bridges and Ports|40,000,000 cargo transported by ship|44.0K||
+Medium Port|10×10|Bridges and Ports|Water|25.0K||
+Large Port|18×16|Bridges and Ports|Water|50.0K||
+## Ferry :: Name|Size (cells)|DLC|Requirements|Upkeep per month|Vehicles|Comfort|Vehicle fuel
+Ferry Depot|24×22|Bridges and Ports||21.0K|20||Fuel
+Ferry Terminal|11×8|Bridges and Ports|Ferry Depot|30.0K||50.0|
+## Air :: Name|Size (cells)|Requirements|Upkeep per month|Attractiveness|Comfort|Has companies|Leisure
+Airport|142×47||50.0K||50.0|True| || jobs=80
+International Airport|170×158|International Airport|200.0K||90.0|True| || jobs=250
+ChirpX Space Center|36×46|Space Center|240.0K|200|||+60 Indoor Recreation || jobs=100;noise=30000
+## Water & Sewage :: Name|Size (cells)|Requirements|Upkeep per month|Water output|Decontamination rate|Water source|Sewage treatment|Purification rate|Leisure
+Water Pumping Station|4×6|Basic Water & Sewage Services|5.0K|100000|0.0|Surface Water||| || jobs=8;noise=5000
+Multi-column Elevated Water Tower|1×1|Basic Water & Sewage Services|5.0K|10000|0.0||||
+Water Pumping Station Extra Pump|||3.5K|50000|0.0|Surface Water||| || jobs=4;noise=2500
+Small Water Tower|2×2|Basic Water & Sewage Services|7.5K|15000|0.0|||| || noise=1250
+Water Tower|4×4|Basic Water & Sewage Services|15.0K|30000|0.0|||| || noise=2500
+Water Tower Viewing Deck|||250||||||+3 Entertainment
+Groundwater Pumping Station|6×6|Basic Water & Sewage Services|10.0K|75000|0.0|Groundwater||| || jobs=16;noise=5000
+Groundwater Pumping Station Advanced Filtering System|||5.5K|0|0.5|Groundwater|||
+Groundwater Pumping Station Extra Pump|||3.5K|37500|0.0|||| || jobs=4;noise=2500
+Advanced Water Pumping Station|11×21|Advanced Water Pumping Station|47.5K|1000000|0.0|Surface Water||| || jobs=64;noise=25000
+Sewage Outlet|2×2|Basic Water & Sewage Services|10.0K||||100000|0.0| || noise=5000;air=5000
+Sewage Outlet Chemical Purification|||2.0K||||0|0.25| || noise=5000;air=2500
+Sewage Outlet Extra Settling Tank|2×3||5.0K||||0|0.1| || noise=5000;air=2500;ground=2500
+Water Treatment Plant|12×10|Water Treatment Plant|60.0K|0|0.0||400000|0.5| || jobs=50;noise=15000;air=7500;ground=7500
+Water Treatment Plant Advanced Filtering System|12×10||10.0K||||0|0.1|
+Water Treatment Plant Extra Processing Unit|12×10||20.0K||||100000|0.0| || jobs=20;noise=7500;air=2500;ground=2500
+## Parking :: Name|Size (cells)|Requirements|Upkeep per month|Comfort
+Motorcycle Parking Lot|2×2|Parking Areas|740|60.0
+Tiny Parking Lot|3×2|Parking Areas|740|50.0
+Small Single-Row Parking Lot|6×2|Parking Areas|800|50.0
+Modest Parking Lot|5×3|Parking Areas|1.8K|50.0
+Canopy-Covered Parking Lot|6×2|Parking Areas|1.8K|60.0
+Small Solar Panel-Covered Parking Lot|3×6|Parking Areas|2.8K|60.0
+Small Parking Lot|5×5|Parking Areas|2.2K|50.0
+Long Parking Lot|3×8|Parking Areas|2.2K|50.0
+Medium Single-Row Parking Lot|12×2|Parking Areas|1.6K|50.0
+Medium Parking Lot|7×5|Parking Areas|3.0K|50.0
+Medium Solar Panel-Covered Parking Lot|7×6|Parking Areas|4.4K|60.0
+Moderate Parking Lot|9×5|Parking Areas|4.0K|50.0
+Wide Parking Lot|16×3|Parking Areas|3.4K|50.0
+Large Parking Lot|10×8|Parking Areas|7.0K|50.0
+Very Large Parking Lot|18×10|Parking Areas|16.0K|50.0
+Small Gravel Parking Lot|6×2|Parking Areas|600|30.0
+Medium Gravel Parking Lot|3×6|Parking Areas|1.4K|30.0
+Small Parking Building|3×6|Parking Areas|8.0K|60.0
+Multi-Level Parking Building|8×6|Parking Areas|40.0K|60.0
+Overground Parking Building|12×14|Parking Areas|30.0K|60.0
+Underground Parking Building|6×10|Underground Parking Building|40.0K|65.0
+Automated Parking Building|13×9|Automated Parking Building|65.0K|75.0
+Bicycle Parking Area|1×1|Parking Areas|180|20.0
+Small Bicycle Shelter|1×1|Parking Areas|200|30.0
+Large Bicycle Shelter|2×1|Parking Areas|600|30.0
+Small Bicycle Storage|1×1|Parking Areas|300|40.0
+Medium Bicycle Storage|1×2|Parking Areas|520|40.0
+Large Bicycle Storage|1×3|Parking Areas|700|40.0
+Bicycle Parking Hall|5×2|Parking Areas|1.44K|50.0
+Large Bicycle Parking Hall|5×5|Parking Areas|7.8K|50.0
+Underground Bicycle Parking Hall|2×3|Parking Areas|10.8K|50.0

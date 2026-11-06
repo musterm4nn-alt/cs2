@@ -1,0 +1,28 @@
+{
+  "name": "Sample block: one avenue, zones on both sides, a few services",
+  "bounds": { "w": 120, "h": 60 },
+  "roads": [
+    { "id": "avenue", "type": "four_lane_road", "path": [[0, 30], [120, 30]] },
+    { "id": "north_st", "type": "two_lane_road", "path": [[0, 10], [120, 10]] },
+    { "id": "south_st", "type": "two_lane_road", "path": [[0, 50], [120, 50]] },
+    { "id": "cross", "type": "two_lane_road", "path": [[40, 11], [40, 49]] }
+  ],
+  "zones": [
+    { "id": "res_n1", "type": "residential_high", "x": 0, "y": 11, "w": 39, "h": 6 },
+    { "id": "res_n2", "type": "residential_medium", "x": 0, "y": 22.5, "w": 39, "h": 6 },
+    { "id": "com_s1", "type": "commercial_high", "x": 0, "y": 31.5, "w": 39, "h": 6 },
+    { "id": "off_s1", "type": "office_high", "x": 0, "y": 43, "w": 39, "h": 6 }
+  ],
+  "buildings": [
+    { "id": "hosp", "asset": "hospital", "x": 41, "y": 31.5, "rotation": 0, "upgrades": ["hospital_helipad"] },
+    { "id": "fire", "asset": "fire_house", "x": 66, "y": 31.5, "rotation": 0 },
+    { "id": "police", "asset": "police_station", "x": 72, "y": 31.5, "rotation": 0 },
+    { "id": "school", "asset": "elementary_school", "x": 41, "y": 20.5, "rotation": 180 },
+    { "id": "school_pg", "asset": "elementary_school_playground", "x": 59, "y": 22.5, "rotation": 180, "parent": "school" },
+    { "id": "park", "asset": "large_city_park", "x": 66, "y": 20.5, "rotation": 180 },
+    { "id": "sig_res", "asset": "halo_heights", "x": 80, "y": 11, "rotation": 0 },
+    { "id": "sig_off", "asset": "stylus_tower", "x": 85, "y": 31.5, "rotation": 0 },
+    { "id": "tower", "asset": "water_tower", "x": 100, "y": 11, "rotation": 0 },
+    { "id": "transformer", "asset": "transformer_station", "x": 106, "y": 11, "rotation": 0 }
+  ]
+}
