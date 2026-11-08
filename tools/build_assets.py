@@ -428,8 +428,8 @@ def main():
         "roads": roads,
         "assets": assets,
     }
+    out["meta"]["catalog"] = write_catalog(out)
     (ROOT / "assets.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    write_catalog(out)
     kinds = defaultdict(int)
     for a in assets:
         kinds[a["kind"]] += 1
@@ -445,60 +445,150 @@ KEY_STATS = [("households", "homes"), ("workplaces", "jobs"), ("serviceRangeM", 
              ("attractiveness", "attract"), ("depotVehicles", "vehicles")]
 
 
+CATALOG_MAX_BYTES = 18_000  # keep every file well below typical web-fetch limits
+# group -> catalog file; signature categories are mapped individually below
+PACKS = {
+    "fire_rescue": "services", "police": "services", "healthcare": "services", "deathcare": "services",
+    "administration": "services", "research": "services", "communications": "services",
+    "education": "education-culture", "landmarks": "education-culture", "attractions": "education-culture",
+    "parks": "parks-parking", "parking": "parks-parking", "pathways": "parks-parking", "road_services": "parks-parking",
+    "electricity": "utilities", "water_sewage": "utilities", "garbage": "utilities",
+    "transport_road": "transport-1", "transport_tram": "transport-1", "transport_subway": "transport-1", "transport_air": "transport-1",
+    "transport_train": "transport-2", "transport_water": "transport-2",
+}
+PACK_OF_CATEGORY = {
+    "SignaturesResidential": "signatures-residential", "SignaturesResidentialMixed": "signatures-residential",
+    "SignaturesCommercial": "signatures-business", "SignaturesOffice": "signatures-business",
+    "SignaturesIndustrial": "signatures-business",
+}
+PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-1", "transport-2",
+              "signatures-residential", "signatures-business", "other"]
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/"
+LEGEND = [
+    "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
+    "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
+    "place within the given distance of its parent; water / track / resource / over_road = special sites.",
+    "Upgrades with no footprint are listed under their parent at the end of each section.",
+]
+ASSET_HEADER = ["id | name | size | U | DLC | placement | parent | upkeep/mo | stats", "---|---|---|---|---|---|---|---|---"]
+
+
+def asset_row(a):
+    st = a["stats"]
+    parts = [f"{label} {st[k]}" for k, label in KEY_STATS if k in st]
+    if a.get("zone"):
+        parts.insert(0, "zone " + a["zone"])
+    for e in a.get("effects") or []:
+        if e["type"] in ("wellbeing", "crime") and e.get("radiusM"):
+            parts.append(f"{e['type']} {e['delta']:+g} within {e['radiusM']} m")
+    par = ", ".join(a.get("parents", []))
+    if a.get("maxDistanceM"):
+        par += f" (≤{a['maxDistanceM']} m)"
+    return (f"{a['id']} | {a['name']} | {a['size']['w']}×{a['size']['d']} | {'U' if a['unique'] else ''} | "
+            f"{a['dlc'] or ''} | {a['placement']} | {par} | {a['upkeepPerMonth'] or ''} | {'; '.join(parts)}")
+
+
+def category_blocks(cat, items):
+    """Rows for one UI category: placeable assets, then upgrade lists. Returns (rows, upgrade_lines, entry_count)."""
+    rows, ups = [], defaultdict(list)
+    for a in items:
+        if a["placeable"]:
+            rows.append(asset_row(a))
+        else:
+            for par in a.get("parents", ["?"]):
+                ups[par].append(a["id"])
+    up_lines = [f"- upgrades of `{p}` (no separate placement): " + ", ".join(f"`{u}`" for u in lst) for p, lst in ups.items()]
+    return rows, up_lines, len(items)
+
+
+def finish_file(name, title, intro, body, entries):
+    """Write catalog/<name>.md with a closing marker line; return its meta record."""
+    import hashlib
+    text = "\n".join([f"# {title}", ""] + intro + [""] + body).rstrip() + "\n"
+    check = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
+    marker = f"END OF FILE catalog/{name}.md | {entries} entries | check {check}"
+    text += "\n" + marker + "\n"
+    (ROOT / "catalog" / f"{name}.md").write_text(text, encoding="utf-8")
+    return {"file": f"catalog/{name}.md", "title": title, "entries": entries, "bytes": len(text.encode("utf-8")), "marker": marker}
+
+
 def write_catalog(out):
-    L = [
-        "# CS2 asset catalog (compact)",
-        "",
-        "Generated from assets.json (extracted from the game files). One row per asset.",
-        "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
-        "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
-        "place within the given distance of its parent; water / track / resource / over_road = special sites.",
-        "Upgrades with no footprint are listed under their parent at the end of each section.",
-        "",
-        "## Zones (lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road)",
-        "",
-        "id | name | family | lot sizes | themes | DLC",
-        "---|---|---|---|---|---",
-    ]
+    cat_dir = ROOT / "catalog"
+    cat_dir.mkdir(exist_ok=True)
+    for old in cat_dir.glob("*.md"):
+        old.unlink()
+    files = []
+
+    # zones and roads
+    body = ["## Zones", "", "Lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.", "",
+            "id | name | family | lot sizes | themes | DLC", "---|---|---|---|---|---"]
     for z in out["zones"]:
         lot = z["lot"]
         lot_s = f"{lot['minW']}×{lot['minD']} to {lot['maxW']}×{lot['maxD']}" if lot else "unknown"
-        L.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
-    L += ["", "## Roads and tracks (width from the game's road sections)", "",
-          "id | name | category | lanes | km/h | width m | width cells | zoning | building access",
-          "---|---|---|---|---|---|---|---|---"]
+        body.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
+    body += ["", "## Roads and tracks", "", "Width from the game's road sections; roads are drawn along their centre line.", "",
+             "id | name | category | lanes | km/h | width m | width cells | zoning | building access",
+             "---|---|---|---|---|---|---|---|---"]
     for r in out["roads"]:
-        L.append(f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
-                 f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}")
+        body.append(f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
+                    f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}")
+    files.append(finish_file("zones-roads", "CS2 zones, roads and tracks", [], body, len(out["zones"]) + len(out["roads"])))
+    files[-1]["contents"] = "zone types, roads, highways, tracks (read this first)"
+
+    # buildings: one file per group (signatures: one per category), split further if too big
     by_cat = defaultdict(list)
     for a in out["assets"]:
         by_cat[a["category"]].append(a)
-    for cat in sorted(by_cat, key=lambda c: (UI_GROUPS.get(c, c), c)):
-        items = by_cat[cat]
-        L += ["", f"## {cat}", "", "id | name | size | U | DLC | placement | parent | upkeep/mo | stats", "---|---|---|---|---|---|---|---|---"]
-        ups = defaultdict(list)
-        for a in items:
-            if not a["placeable"]:
-                for par in a.get("parents", ["?"]):
-                    ups[par].append(a["id"])
+    groups = defaultdict(list)
+    for cat in by_cat:
+        key = PACK_OF_CATEGORY.get(cat) or PACKS.get(UI_GROUPS.get(cat, ""), "other")
+        groups[key].append(cat)
+    for key in sorted(groups, key=lambda k: PACK_ORDER.index(k) if k in PACK_ORDER else 99):
+        sections = []  # list of (cat, rows, up_lines, entries)
+        for cat in sorted(groups[key]):
+            sections.append((cat,) + category_blocks(cat, by_cat[cat]))
+        # pack rows into parts under the size limit
+        parts, cur, cur_entries, size = [], [], 0, 0
+        for cat, rows, up_lines, entries in sections:
+            chunk = ["", f"## {cat}", ""] + ASSET_HEADER + rows + ([""] + up_lines if up_lines else [])
+            csize = len("\n".join(chunk).encode("utf-8"))
+            if cur and size + csize > CATALOG_MAX_BYTES:
+                parts.append((cur, cur_entries)); cur, cur_entries, size = [], 0, 0
+            if csize > CATALOG_MAX_BYTES:  # a single huge category: split its rows
+                for i in range(0, len(rows), 60):
+                    sub = ["", f"## {cat} (rows {i + 1}–{min(i + 60, len(rows))})", ""] + ASSET_HEADER + rows[i:i + 60]
+                    if i + 60 >= len(rows) and up_lines:
+                        sub += [""] + up_lines
+                    parts.append((sub, min(60, len(rows) - i) + (len(up_lines) if i + 60 >= len(rows) else 0)))
                 continue
-            st = a["stats"]
-            parts = [f"{label} {st[k]}" for k, label in KEY_STATS if k in st]
-            if a.get("zone"):
-                parts.insert(0, "zone " + a["zone"])
-            for e in a.get("effects") or []:
-                if e["type"] in ("wellbeing", "crime") and e.get("radiusM"):
-                    parts.append(f"{e['type']} {e['delta']:+g} within {e['radiusM']} m")
-            par = ", ".join(a.get("parents", []))
-            if a.get("maxDistanceM"):
-                par += f" (≤{a['maxDistanceM']} m)"
-            L.append(f"{a['id']} | {a['name']} | {a['size']['w']}×{a['size']['d']} | {'U' if a['unique'] else ''} | "
-                     f"{a['dlc'] or ''} | {a['placement']} | {par} | {a['upkeepPerMonth'] or ''} | {'; '.join(parts)}")
-        if ups:
-            L.append("")
-            for par, lst in ups.items():
-                L.append(f"- upgrades of `{par}` (no separate placement): " + ", ".join(f"`{u}`" for u in lst))
-    (ROOT / "CATALOG.md").write_text("\n".join(L) + "\n", encoding="utf-8")
+            cur += chunk; cur_entries += entries; size += csize
+        if cur:
+            parts.append((cur, cur_entries))
+        for n, (body, entries) in enumerate(parts, 1):
+            name = key if len(parts) == 1 else f"{key}-{n}"
+            title = f"CS2 catalog: {key.replace('-', ' ')}" + (f" (part {n} of {len(parts)})" if len(parts) > 1 else "")
+            files.append(finish_file(name, title, LEGEND, body, entries))
+            cats = [line[3:].split(" (rows")[0] for line in body if line.startswith("## ")]
+            files[-1]["contents"] = ", ".join(dict.fromkeys(cats))
+
+    # index
+    idx = [
+        "# CS2 asset catalog (index)",
+        "",
+        "The catalog is split into small files so web tools don't cut it off. Read `catalog/zones-roads.md` first, then the",
+        "files for the kinds of buildings you need. Every file ends with a line starting `END OF FILE`. If a file you",
+        "fetched does not end with that line, it was cut off: fetch it again or in parts. Copy the END OF FILE line of every",
+        "file you read completely into your layout's `\"catalogMarkers\"` list; the validator reports which files you read.",
+        "",
+    ] + LEGEND + [
+        "",
+        "file | contents | entries | size",
+        "---|---|---|---",
+    ]
+    for f in files:
+        idx.append(f"[{f['file']}]({RAW_BASE}{f['file']}) | {f['contents']} | {f['entries']} | {round(f['bytes'] / 1024, 1)} KB")
+    (ROOT / "CATALOG.md").write_text("\n".join(idx) + "\n", encoding="utf-8")
+    return [{k: f[k] for k in ("file", "entries", "marker")} for f in files]
 
 
 if __name__ == "__main__":

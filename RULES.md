@@ -5,12 +5,18 @@ automatically, so follow the format exactly.
 
 ## Data
 
-- Asset list, compact (best for reading): https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js
+- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
+  It lists 9 small catalog files (each under 14 KB). Always read `catalog/zones-roads.md`, then the files for the
+  buildings you need (services, education & culture, parks & parking, utilities, transport, signature buildings).
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
+
+**Every catalog file ends with a line starting `END OF FILE`.** If a file you fetched doesn't end with that line, it
+was cut off: fetch it again or in parts before using it. Copy the END OF FILE line of each file you read completely,
+exactly as written, into the layout's `"catalogMarkers"` list. The validator report shows which files were read in full.
 
 ## The grid
 
@@ -84,13 +90,13 @@ segments are easiest to validate. Road widths come from the game's road sections
 }
 ```
 
-`bounds` is optional; with it, anything outside the box is an error. `repeatable` is optional (see rule 10).
+`bounds` is optional; with it, anything outside the box is an error. `repeatable` is optional (see rule 10). `catalogMarkers` is optional but shows which catalog files you read completely.
 
 ## Using the validator in your HTML page
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app')).then(result => {

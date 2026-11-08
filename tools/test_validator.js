@@ -148,6 +148,27 @@ test('track running along a road is an error, crossing is fine', () => {
   assert(!msgs(CS2.validate(k, { data })).some((m) => /Runs along/.test(m)));
 });
 
+test('catalog markers: exact lines confirm files, altered ones warn', () => {
+  const l = clone(sample);
+  const zr = data.meta.catalog.find((c) => c.file === 'catalog/zones-roads.md');
+  const sv = data.meta.catalog.find((c) => c.file === 'catalog/services.md');
+  l.catalogMarkers = [zr.marker, sv.marker, sv.marker.replace(/check \w+/, 'check 000000')];
+  const r = CS2.validate(l, { data });
+  assert.deepStrictEqual(r.stats.catalogRead.confirmed, ['catalog/zones-roads.md', 'catalog/services.md']);
+  assert(r.warnings.some((w) => /altered catalog marker/.test(w.message)));
+  assert(CS2.reportHTML(r).includes('2 of ' + data.meta.catalog.length));
+  delete l.catalogMarkers;
+  assert(CS2.validate(l, { data }).info.some((i) => /No "catalogMarkers"/.test(i.message)));
+});
+
+test('every catalog file is small and ends with its marker', () => {
+  data.meta.catalog.forEach((c) => {
+    const text = fs.readFileSync(path.join(__dirname, '..', c.file), 'utf8');
+    assert(Buffer.byteLength(text) < 18500, c.file + ' is ' + Buffer.byteLength(text) + ' bytes');
+    assert.strictEqual(text.trim().split('\n').pop(), c.marker);
+  });
+});
+
 test('coverage never exceeds 100% with fractional zone sizes', () => {
   const l = clone(sample); l.zones.push({ id: 'frac', type: 'residential_high', x: 100, y: 51, w: 5.5, h: 3.5 });
   const r = CS2.validate(l, { data });

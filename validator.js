@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -17,7 +17,7 @@
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -380,6 +380,20 @@
         info.push({ ref: g, message: 'No ' + needs[g] + ' in this layout (fine if it is served from elsewhere in the city).' });
     });
 
+    // which catalog files the model confirms it read to the end (their END OF FILE lines)
+    var catalog = (data.meta && data.meta.catalog) || [];
+    if (catalog.length) {
+      var given = (layout.catalogMarkers || []).map(function (m) { return String(m).trim(); });
+      var confirmed = catalog.filter(function (c) { return given.indexOf(c.marker) >= 0; }).map(function (c) { return c.file; });
+      given.forEach(function (g) {
+        if (!catalog.some(function (c) { return c.marker === g; }))
+          warn('catalogMarkers', 'Unknown or altered catalog marker "' + g.slice(0, 90) + '". Copy each END OF FILE line exactly.');
+      });
+      stats.catalogRead = { confirmed: confirmed, total: catalog.length };
+      if (!given.length) info.push({ ref: 'catalog', message: 'No "catalogMarkers" given, so it is unknown which catalog files were read completely.' });
+      else if (confirmed.indexOf('catalog/zones-roads.md') < 0) warn('catalog', 'catalog/zones-roads.md (zones and roads) is not confirmed as read completely.');
+    }
+
     return { ok: errors.length === 0, errors: errors, warnings: warnings, info: info, stats: stats, _items: items, _roads: roads };
   }
 
@@ -447,6 +461,8 @@
       ' · <b>Service jobs:</b> ' + s.serviceWorkplaces + ' · <b>Upkeep:</b> ₡' + s.upkeepPerMonth.toLocaleString() + '/month</div>');
     var zc = Object.keys(s.zoneCells);
     if (zc.length) h.push('<div><b>Zoned cells:</b> ' + zc.map(function (k) { return k + ' ' + s.zoneCells[k]; }).join(' · ') + '</div>');
+    if (s.catalogRead) h.push('<div><b>Catalog files confirmed read completely:</b> ' + s.catalogRead.confirmed.length + ' of ' + s.catalogRead.total +
+      (s.catalogRead.confirmed.length ? ' (' + s.catalogRead.confirmed.map(function (f) { return esc(f.replace('catalog/', '')); }).join(', ') + ')' : '') + '</div>');
     var cv = Object.keys(s.coverage);
     if (cv.length) h.push('<div><b>Service coverage of zoned cells</b> (straight-line, optimistic): ' + cv.map(function (k) { return k + ' ' + s.coverage[k] + '%'; }).join(' · ') + '</div>');
     h.push('<div style="color:#868e96;font-size:12px;margin-top:6px">Checked by cs2 validator · data from the Cities: Skylines II Wiki (CC BY-NC-SA)</div></div>');
@@ -469,5 +485,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.2.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.3.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });
