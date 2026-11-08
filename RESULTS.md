@@ -29,9 +29,12 @@ Sorted by wins, then win rate, then average zoned share of valid layouts.
 
 | Model | Battles | Wins | Losses | Draws | Valid layouts | Avg zoned share (valid) |
 |---|---|---|---|---|---|---|
+| deepseek-v4.1-flash-max | 2 | 2 | 0 | 0 | 1 | 38% |
+| claude-opus-5.5-low | 1 | 1 | 0 | 0 | 1 | 79% |
 | gemini-3.8-flash | 1 | 1 | 0 | 0 | 1 | 64% |
-| deepseek-v4.1-flash-max | 1 | 1 | 0 | 0 | 1 | 38% |
 | muse-spark-1.3-xhigh | 1 | 0 | 1 | 0 | 1 | 26% |
+| kimi-k3.1-pro-max | 1 | 0 | 1 | 0 | 0 | – |
+| qwen3.8-max-0902 | 1 | 0 | 1 | 0 | 0 | – |
 | step-5-preview | 1 | 0 | 1 | 0 | 0 | – |
 
 ## Battles (Code Arena)
@@ -43,8 +46,8 @@ read completely (of 20). "Decided by" = the scorecard row that decided the battl
 |---|---|---|---|---|---|---|---|---|---|
 | 5¹ | 05-01 | gemini-3.8-flash | 0 / 0 / 64% / 100% / ₡30 | 13 | step-5-preview | no layout | – | **gemini-3.8-flash** | no output |
 | 5¹ | 05-02 | muse-spark-1.3-xhigh | 0 / 0 / 26% / 100% / ₡42 | 12 | deepseek-v4.1-flash-max | 0 / 0 / 38% / 100% / ₡61 | 12 | **deepseek-v4.1-flash-max** | zoned share |
-| 5¹ | 05-03 | *(name pending)* | 6 / 0 / 57% / 100% / ₡26 | 9 | *(name pending)* | 0 / 0 / 79% / 83% / ₡13 | 6 | **B** | errors |
-| 5¹ | 05-04 | *(name pending)* | 1 / 0 / 24% / 97% / ₡88 | 10 | *(name pending)* | no layout | – | **A** | no output |
+| 5¹ | 05-03 | kimi-k3.1-pro-max | 6 / 0 / 57% / 100% / ₡26 | 9 | claude-opus-5.5-low | 0 / 0 / 79% / 83% / ₡13 | 6 | **claude-opus-5.5-low** | errors |
+| 5¹ | 05-04 | deepseek-v4.1-flash-max | 1 / 0 / 24% / 97% / ₡88 | 10 | qwen3.8-max-0902 | no layout | – | **deepseek-v4.1-flash-max** | no output |
 
 ¹ Round 5 ran on v3.0.0 (the prompt linked v3.0.0). All layouts were re-checked under the v3.2.0 rules: no layout
 breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
