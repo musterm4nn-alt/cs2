@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -17,7 +17,7 @@
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -240,7 +240,7 @@
     // ---------- stats ----------
     var stats = { zoneCells: {}, buildings: 0, uniqueBuildings: 0, households: 0, serviceWorkplaces: 0, upkeepPerMonth: 0, coverage: {} };
     items.forEach(function (it) {
-      if (it.kind === 'zone') { var f = it.zone.id; stats.zoneCells[f] = (stats.zoneCells[f] || 0) + it.inst.w * it.inst.h; }
+      if (it.kind === 'zone') { var f = it.zone.id; stats.zoneCells[f] = Math.round(((stats.zoneCells[f] || 0) + it.inst.w * it.inst.h) * 100) / 100; }
       else {
         stats.buildings++;
         if (it.asset.unique) stats.uniqueBuildings++;
@@ -371,5 +371,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.0.1', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.1.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });

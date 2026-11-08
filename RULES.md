@@ -6,8 +6,8 @@ automatically, so follow the format exactly.
 ## Data
 
 - Asset list, compact (best for reading): https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -81,7 +81,7 @@ segments are easiest to validate. Road widths come from the game's road sections
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app')).then(result => {

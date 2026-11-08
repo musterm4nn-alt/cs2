@@ -21,7 +21,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>

@@ -178,13 +178,24 @@ def road_width(p, by):
         s = by["NetSectionPrefab"].get(n)
         if not s:
             return 0
-        ws = [piece_w(ref_name(pc.get("m_Piece"))) for pc in s["fields"].get("m_Pieces", []) if not pc.get("m_RequireAll")]
+        ws = [piece_w(ref_name(pc.get("m_Piece"))) for pc in s["fields"].get("m_Pieces", []) if not pc.get("m_RequireAll") and not pc.get("m_RequireAny")]
         if ws:
             return max(ws)
         subs = s["fields"].get("m_SubSections", [])
         return max([section_w(ref_name(x.get("m_SubSection") or x.get("m_Section"))) for x in subs] or [0])
 
-    secs = [s for s in p["fields"].get("m_Sections", []) if not s.get("m_RequireAll")]
+    # Default road state: the flags set by unconditional edge states (e.g. 51). A section is part of the default
+    # road when all of RequireAll are set, at least one of RequireAny is set (if any listed), and none of RequireNone.
+    flags = set()
+    for e in p["fields"].get("m_EdgeStates", []) or []:
+        if not e.get("m_RequireAll") and not e.get("m_RequireAny") and not e.get("m_RequireNone"):
+            flags.update(e.get("m_SetState") or [])
+
+    def active(s):
+        ra, rany, rn = set(s.get("m_RequireAll") or []), set(s.get("m_RequireAny") or []), set(s.get("m_RequireNone") or [])
+        return ra <= flags and (not rany or bool(rany & flags)) and not (rn & flags)
+
+    secs = [s for s in p["fields"].get("m_Sections", []) if active(s)]
     width = sum(section_w(ref_name(s.get("m_Section"))) for s in secs)
     lanes = sum(1 for s in secs if "Drive" in (ref_name(s.get("m_Section")) or ""))
     return round(width, 2), lanes

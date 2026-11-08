@@ -60,12 +60,12 @@ seven_lane_asymmetric_road | Seven-Lane Asymmetric Road | large | 7 | 50 | 32 | 
 seven_lane_asymmetric_road_large_road_asymmetric | Seven-Lane Asymmetric Road | large | 7 | 50 | 32 | 4 | yes | yes
 seven_lane_one_way_road | Seven-Lane One-Way Road | large | 7 | 50 | 32 | 4 | yes | yes
 six_lane_asymmetric_road | Six-Lane Asymmetric Road | large | 6 | 50 | 32 | 4 | yes | yes
+six_lane_divided_extradosed_bridge | Six-Lane Divided Extradosed Bridge | large | 6 | 60 | 32 | 4 | no | yes
+six_lane_divided_road | Six-Lane Divided Road | large | 6 | 60 | 32 | 4 | yes | yes
 six_lane_one_way_road | Six-Lane One-Way Road | large | 6 | 50 | 32 | 4 | yes | yes
 six_lane_road | Six-Lane Road | large | 6 | 50 | 32 | 4 | yes | yes
-six_lane_divided_extradosed_bridge | Six-Lane Divided Extradosed Bridge | large | 6 | 60 | 46 | 5.75 | no | yes
-six_lane_divided_road | Six-Lane Divided Road | large | 6 | 60 | 46 | 5.75 | yes | yes
-eight_lane_divided_cable_stayed_bridge | Eight-Lane Divided Cable-Stayed Bridge | large | 8 | 60 | 56 | 7 | no | yes
-eight_lane_divided_road | Eight-Lane Divided Road | large | 8 | 60 | 56 | 7 | yes | yes
+eight_lane_divided_cable_stayed_bridge | Eight-Lane Divided Cable-Stayed Bridge | large | 8 | 60 | 40 | 5 | no | yes
+eight_lane_divided_road | Eight-Lane Divided Road | large | 8 | 60 | 40 | 5 | yes | yes
 four_lane_drawbridge | Four-Lane Drawbridge | medium | 4 | 50 | 19 | 2.375 | no | yes
 four_lane_extradosed_bridge | Four-Lane Extradosed Bridge | medium | 4 | 50 | 19 | 2.375 | no | yes
 four_lane_one_way_extradosed_bridge | Four-Lane One-Way Extradosed Bridge | medium | 4 | 50 | 19 | 2.375 | no | yes
@@ -75,6 +75,7 @@ two_lane_four_lane_double_decked_extradosed_bridge | Two-Lane + Four-Lane Double
 five_lane_asymmetric_road | Five-Lane Asymmetric Road | medium | 5 | 50 | 24 | 3 | yes | yes
 five_lane_one_way_road | Five-Lane One-Way Road | medium | 5 | 50 | 24 | 3 | yes | yes
 four_lane_asymmetric_road | Four-Lane Asymmetric Road | medium | 4 | 50 | 24 | 3 | yes | yes
+four_lane_divided_road | Four-Lane Divided Road | medium | 4 | 50 | 24 | 3 | yes | yes
 four_lane_one_way_road | Four-Lane One-Way Road | medium | 4 | 50 | 24 | 3 | yes | yes
 four_lane_road | Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
 wide_quay_with_four_lane_road | Wide Quay With Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
@@ -82,7 +83,6 @@ wide_quay_with_four_lane_road_quaylarge02 | Wide Quay With Four-Lane Road | medi
 wide_quay_with_four_lane_road_quaylarge03 | Wide Quay With Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
 four_lane_angled_parking_road | Four-Lane Angled Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
 four_lane_perpendicular_parking_road | Four-Lane Perpendicular Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
-four_lane_divided_road | Four-Lane Divided Road | medium | 4 | 50 | 38 | 4.75 | yes | yes
 one_lane_one_way_port_gate_road | One-Lane One-Way Port Gate Road | port | 1 | 40 | 8 | 1 | yes | yes
 two_lane_one_way_port_gate_road | Two-Lane One-Way Port Gate Road | port | 2 | 40 | 16 | 2 | yes | yes
 two_lane_port_gate_road | Two-Lane Port Gate Road | port | 2 | 40 | 16 | 2 | yes | yes
@@ -105,15 +105,15 @@ medium_quay_with_two_way_road_quaymedium03 | Medium Quay With Two-Way Road | sma
 one_lane_one_way_angled_parking_road | One-Lane One-Way Angled Parking Road | small | 1 | 40 | 16 | 2 | yes | yes
 one_lane_one_way_perpendicular_parking_road | One-Lane One-Way Perpendicular Parking Road | small | 1 | 40 | 16 | 2 | yes | yes
 one_lane_one_way_road | One-Lane One-Way Road | small | 1 | 40 | 16 | 2 | yes | yes
+one_way_angled_parking_alley | One-Way Angled Parking Alley | small | 1 | 30 | 16 | 2 | yes | yes
+one_way_perpendicular_parking_alley | One-Way Perpendicular Parking Alley | small | 1 | 30 | 16 | 2 | yes | yes
+pedestrian_street | Pedestrian Street | small | 2 | 20 | 16 | 2 | yes | yes
 three_lane_asymmetric_road | Three-Lane Asymmetric Road | small | 3 | 40 | 16 | 2 | yes | yes
 three_lane_one_way_road | Three-Lane One-Way Road | small | 3 | 40 | 16 | 2 | yes | yes
 two_lane_one_way_road | Two-Lane One-Way Road | small | 2 | 40 | 16 | 2 | yes | yes
 two_lane_road | Two-Lane Road | small | 2 | 40 | 16 | 2 | yes | yes
 two_lane_truss_arch_bridge | Two-Lane Truss Arch Bridge | small | 2 | 40 | 16 | 2 | no | yes
-one_way_angled_parking_alley | One-Way Angled Parking Alley | small | 1 | 30 | 21 | 2.625 | yes | yes
-one_way_perpendicular_parking_alley | One-Way Perpendicular Parking Alley | small | 1 | 30 | 21 | 2.625 | yes | yes
 angled_parking_alley | Angled Parking Alley | small | 2 | 30 | 24 | 3 | yes | yes
-pedestrian_street | Pedestrian Street | small | 2 | 20 | 24 | 3 | yes | yes
 perpendicular_parking_alley | Perpendicular Parking Alley | small | 2 | 30 | 24 | 3 | yes | yes
 two_lane_angled_parking_road | Two-Lane Angled Parking Road | small | 2 | 40 | 24 | 3 | yes | yes
 two_lane_perpendicular_parking_road | Two-Lane Perpendicular Parking Road | small | 2 | 40 | 24 | 3 | yes | yes
