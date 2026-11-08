@@ -19,7 +19,9 @@ Edge cases:
 - A side that produced no layout (no page, or a page that never runs the validator) **loses**.
 - If neither side produced a layout, the battle is recorded as **no result** and doesn't count.
 - Equal on all five rows is a **draw**.
-- "Catalog files read" (from the END OF FILE markers) is shown for context; it doesn't affect the result.
+- "Catalog files read" (from the END OF FILE markers) is shown for context and doesn't count by itself. The one
+  exception: RULES.md requires every `zones-roads` catalog file, so a layout that doesn't confirm reading all of them
+  gets a validator warning, and that warning counts on row 2 like any other.
 - Model names are recorded exactly as Arena reveals them. Effort levels (-high, -xhigh, -max) and codenames are
   separate entries, as on Arena's own leaderboard.
 
@@ -57,8 +59,8 @@ read completely (of 20 in v3.0.0, of 21 in v3.2.0). "Decided by" = the scorecard
 breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
 models saw the catalog without the zone density column.
 
-² 06-02-A's only warning is that it didn't read catalog/zones-roads-3.md, which the validator counts on row 2.
-Without that warning the battle is tied on rows 1–4 and B still wins on row 5 (upkeep per zoned cell, ₡26 vs ₡37).
+² 06-02-A's only warning is that it didn't read catalog/zones-roads-3.md (required reading, so it counts). Without
+that warning B would still win, on row 5 (upkeep per zoned cell, ₡26 vs ₡37).
 
 ## Runs outside Arena
 
