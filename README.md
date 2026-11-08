@@ -14,7 +14,7 @@ their results can be compared objectively.
 | [`catalog/`](catalog) | Compact one-line-per-asset lists in ~20 files of under 7,000 characters each (Code Arena's web_fetch stops at 8,000), each ending with an END OF FILE marker. |
 | [`assets.json`](assets.json) | Full data: 732 buildings, sub-buildings and upgrades (incl. 144 signature buildings), 18 zones, 102 roads/tracks. |
 | [`validator.js`](validator.js) | Validator + SVG renderer. Works in the browser and in Node. |
-| [`RESULTS.md`](RESULTS.md) | Results record of battles run with the frozen v3.1.0 tool. |
+| [`RESULTS.md`](RESULTS.md) | Results record of battles run with the frozen v3.2.0 tool. |
 | [`PROMPT.md`](PROMPT.md) | Ready-to-paste battle prompt that points models at the files above. |
 | [`examples/`](examples) | Sample layout and a page to check any layout JSON by hand. |
 | [`tools/`](tools) | Game-data extractor, build script and tests. |
@@ -23,7 +23,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>
@@ -37,7 +37,7 @@ The validator checks:
 - the building's front edge touches a road (highways and tracks don't count)
 - zone blocks touch a zonable road and are at most 6 cells deep
 - sub-buildings sit within the game's maximum distance of a matching parent; upgrades go on a matching parent, once
-- high-density zones are fed by a road wider than 1 cell (not only alleys, gravel roads or small pedestrian streets)
+- high-density zones are fed by a road wider than 1 cell or a pedestrian street (not only alleys or gravel roads)
 - the layout contains residential, commercial and office zoning (configurable with `requireZoneFamilies`)
 - no industrial zoning or industrial signature buildings (default; pass `{ noIndustry: false }` to allow them)
 - the layout stays inside its bounds

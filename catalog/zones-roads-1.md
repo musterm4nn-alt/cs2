@@ -1,7 +1,7 @@
 # CS2 catalog: zones, roads and tracks (part 1 of 3)
 
 Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.
-High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).
+High-density zones need a road wider than 1 cell or a pedestrian street (not only alleys or gravel roads).
 Road width comes from the game's road sections; roads are drawn along their centre line.
 
 
@@ -82,4 +82,4 @@ wide_quay_with_four_lane_road_quaylarge02 | Wide Quay With Four-Lane Road | medi
 wide_quay_with_four_lane_road_quaylarge03 | Wide Quay With Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
 four_lane_angled_parking_road | Four-Lane Angled Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
 
-END OF FILE catalog/zones-roads-1.md | 62 entries | check 9f26e9
+END OF FILE catalog/zones-roads-1.md | 62 entries | check cd04e3

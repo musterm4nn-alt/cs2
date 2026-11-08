@@ -1,7 +1,7 @@
 # CS2 layout battles: results record
 
 Battles where AI models design a repeatable Cities: Skylines II district tile with the prompt in
-[PROMPT.md](PROMPT.md). Every result here was checked with the **same frozen tool: v3.1.0** (rules, data,
+[PROMPT.md](PROMPT.md). Every result here was checked with the **same frozen tool: v3.2.0** (rules, data,
 validator and scoring). Rounds 1–4 were test rounds while the tool was being built and are not recorded.
 
 ## How a battle is decided

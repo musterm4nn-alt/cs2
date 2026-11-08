@@ -229,13 +229,17 @@ test('high-density zoning only along 1-cell roads is an error; medium is fine; a
     ],
     zones: [], buildings: []
   });
-  const narrowMsg = (l) => msgs(CS2.validate(l, { data })).filter((m) => /fed only by 1-cell-wide roads/.test(m));
+  const narrowMsg = (l) => msgs(CS2.validate(l, { data })).filter((m) => /fed only by 1-cell-wide car roads/.test(m));
   let l = base(); l.zones.push({ id: 'hi', type: 'residential_high', x: 30.5, y: 12, w: 6, h: 12 });
   assert.strictEqual(narrowMsg(l).length, 1, 'high density on an alley must fail');
   l = base(); l.zones.push({ id: 'mid', type: 'residential_mixed', x: 30.5, y: 12, w: 6, h: 12 });
   assert.strictEqual(narrowMsg(l).length, 0, 'medium density on an alley is allowed');
   l = base(); l.zones.push({ id: 'low', type: 'commercial_low', x: 30.5, y: 12, w: 6, h: 12 });
   assert.strictEqual(narrowMsg(l).length, 0, 'low density on an alley is allowed');
+  // v3.2: small pedestrian streets are 1 cell wide but carry no cars, so high density may face them
+  l = base(); l.roads.find((r) => r.id === 'lane').type = 'small_pedestrian_street';
+  l.zones.push({ id: 'ped', type: 'commercial_high', x: 30.5, y: 12, w: 6, h: 12 });
+  assert.strictEqual(narrowMsg(l).length, 0, 'high density along a small pedestrian street is allowed');
   l = base(); l.zones.push({ id: 'corner', type: 'office_high', x: 24, y: 6, w: 5.5, h: 6 });
   assert.strictEqual(narrowMsg(l).length, 0, 'high density touching a two-lane road as well is allowed');
   // loophole: a long strip fed by an alley along its long side that only touches a real road at its short end
@@ -253,6 +257,8 @@ test('every zone has a density and roads say whether they are 1 cell wide', () =
   const narrowZonable = data.roads.filter((r) => r.narrow && r.allowsZoning).map((r) => r.id).sort();
   assert(narrowZonable.includes('alley') && narrowZonable.includes('small_pedestrian_street'));
   assert(!data.roads.find((r) => r.id === 'two_lane_road').narrow);
+  const limiting = data.roads.filter((r) => r.limitsDensity).map((r) => r.id);
+  assert(limiting.includes('alley') && limiting.includes('gravel_road') && !limiting.includes('small_pedestrian_street'));
 });
 
 test('renderer produces an SVG and a report', () => {

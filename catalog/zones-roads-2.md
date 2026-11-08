@@ -1,7 +1,7 @@
 # CS2 catalog: zones, roads and tracks (part 2 of 3)
 
 Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.
-High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).
+High-density zones need a road wider than 1 cell or a pedestrian street (not only alleys or gravel roads).
 Road width comes from the game's road sections; roads are drawn along their centre line.
 
 
@@ -90,4 +90,4 @@ double_train_track_lift_bridge | Double Train Track Lift Bridge | track |  | 80 
 double_subway_track | Double Subway Track | track |  | 120 | 12 | 1.5 | no | no
 double_subway_track_lift_bridge | Double Subway Track Lift Bridge | track |  | 120 | 12 | 1.5 | no | no
 
-END OF FILE catalog/zones-roads-2.md | 55 entries | check fb36a5
+END OF FILE catalog/zones-roads-2.md | 55 entries | check ef48e0

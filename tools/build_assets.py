@@ -247,6 +247,8 @@ def build_roads(prefabs, names, by):
             "speedKmh": round(f["m_SpeedLimit"] / 2) if f.get("m_SpeedLimit") else None,
             "widthM": width, "widthCells": round(width / CELL, 3),
             "allowsZoning": zoning, "buildingAccess": not highway and not is_track, "narrow": width <= CELL,
+            # 1-cell car roads limit zoning to low/medium density; pedestrian streets carry no car traffic, so they don't
+            "limitsDensity": width <= CELL and "Pedestrian" not in p["prefab"],
             "dlc": dlc_of(p), "upkeepNote": None,
         })
         roads[-1].pop("upkeepNote")
@@ -480,7 +482,7 @@ PACK_OF_CATEGORY = {
 }
 PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
-RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.1.0/"
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.2.0/"
 LEGEND = [
     "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
     "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
@@ -585,7 +587,7 @@ def write_catalog(out):
     road_header = ["id | name | category | lanes | km/h | width m | width cells | zoning | building access",
                    "---|---|---|---|---|---|---|---|---"]
     zr_intro = ["Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.",
-                "High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).",
+                "High-density zones need a road wider than 1 cell or a pedestrian street (not only alleys or gravel roads).",
                 "Road width comes from the game's road sections; roads are drawn along their centre line."]
     road_secs = [("Zones", ["id | name | family | density | lot sizes | themes | DLC", "---|---|---|---|---|---|---"], zone_rows, [])]
     for cat_name in ("small", "medium", "large", "highway", "transit_lane", "port", "track"):
