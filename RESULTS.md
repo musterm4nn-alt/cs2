@@ -33,9 +33,15 @@ Sorted by wins, then win rate, then average zoned share of valid layouts.
 |---|---|---|---|---|---|---|
 | deepseek-v4.1-flash-max | 2 | 2 | 0 | 0 | 1 | 38% |
 | claude-opus-5.5-low | 1 | 1 | 0 | 0 | 1 | 79% |
-| gemini-3.8-flash | 1 | 1 | 0 | 0 | 1 | 64% |
+| claude-opus-5.5-high | 1 | 1 | 0 | 0 | 1 | 75% |
+| claude-fable-5.1-max | 1 | 1 | 0 | 0 | 1 | 73% |
+| mistral-large-4-high | 1 | 1 | 0 | 0 | 1 | 66% |
+| gpt-6.1-terra-max | 1 | 1 | 0 | 0 | 1 | 65% |
+| gemini-3.8-flash | 2 | 1 | 1 | 0 | 2 | 65% |
 | muse-spark-1.3-xhigh | 1 | 0 | 1 | 0 | 1 | 26% |
+| gpt-6-luna-max | 2 | 0 | 2 | 0 | 2 | 25% |
 | kimi-k3.1-pro-max | 1 | 0 | 1 | 0 | 0 | – |
+| minimax-m3-1-flash | 1 | 0 | 1 | 0 | 0 | – |
 | qwen3.8-max-0902 | 1 | 0 | 1 | 0 | 0 | – |
 | step-5-preview | 1 | 0 | 1 | 0 | 0 | – |
 
@@ -50,10 +56,10 @@ read completely (of 20 in v3.0.0, of 21 in v3.2.0). "Decided by" = the scorecard
 | 5¹ | 05-02 | muse-spark-1.3-xhigh | 0 / 0 / 26% / 100% / ₡42 | 12 | deepseek-v4.1-flash-max | 0 / 0 / 38% / 100% / ₡61 | 12 | **deepseek-v4.1-flash-max** | zoned share |
 | 5¹ | 05-03 | kimi-k3.1-pro-max | 6 / 0 / 57% / 100% / ₡26 | 9 | claude-opus-5.5-low | 0 / 0 / 79% / 83% / ₡13 | 6 | **claude-opus-5.5-low** | errors |
 | 5¹ | 05-04 | deepseek-v4.1-flash-max | 1 / 0 / 24% / 97% / ₡88 | 10 | qwen3.8-max-0902 | no layout | – | **deepseek-v4.1-flash-max** | no output |
-| 6 | 06-01 | *(name pending)* | 0 / 0 / 21% / 83% / ₡25 | 8 | *(name pending)* | 0 / 0 / 73% / 100% / ₡22 | 14 | **B** | zoned share |
-| 6 | 06-02 | *(name pending)* | 0 / 1 / 65% / 100% / ₡37 | 14 | *(name pending)* | 0 / 0 / 65% / 100% / ₡26 | 12 | **B** | warnings² |
-| 6 | 06-03 | *(name pending)* | 0 / 0 / 66% / 100% / ₡6 | 12 | *(name pending)* | 0 / 0 / 29% / 100% / ₡36 | 11 | **A** | zoned share |
-| 6 | 06-04 | *(name pending)* | 1 / 0 / 42% / 83% / ₡63 | 11 | *(name pending)* | 0 / 0 / 75% / 100% / ₡24 | 9 | **B** | errors |
+| 6 | 06-01 | gpt-6-luna-max | 0 / 0 / 21% / 83% / ₡25 | 8 | claude-fable-5.1-max | 0 / 0 / 73% / 100% / ₡22 | 14 | **claude-fable-5.1-max** | zoned share |
+| 6 | 06-02 | gemini-3.8-flash | 0 / 1 / 65% / 100% / ₡37 | 14 | gpt-6.1-terra-max | 0 / 0 / 65% / 100% / ₡26 | 12 | **gpt-6.1-terra-max** | warnings² |
+| 6 | 06-03 | mistral-large-4-high | 0 / 0 / 66% / 100% / ₡6 | 12 | gpt-6-luna-max | 0 / 0 / 29% / 100% / ₡36 | 11 | **mistral-large-4-high** | zoned share |
+| 6 | 06-04 | minimax-m3-1-flash | 1 / 0 / 42% / 83% / ₡63 | 11 | claude-opus-5.5-high | 0 / 0 / 75% / 100% / ₡24 | 9 | **claude-opus-5.5-high** | errors |
 
 ¹ Round 5 ran on v3.0.0 (the prompt linked v3.0.0). All layouts were re-checked under the v3.2.0 rules: no layout
 breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
