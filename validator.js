@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -11,13 +11,14 @@
   else root.CS2 = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  var VERSION = '2.5.0';
 
   var SCRIPT_BASE = (function () {
     try {
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -404,7 +405,44 @@
       }
     }
 
+    stats.score = scorecard(layout, errors, warnings, stats);
     return { ok: errors.length === 0, errors: errors, warnings: warnings, info: info, stats: stats, _items: items, _roads: roads };
+  }
+
+  // ---------- scorecard ----------
+  // Fixed tie-break order for comparing two layouts (first difference decides):
+  //   1. fewer errors  2. fewer warnings  3. higher zoned share of the tile (whole %)
+  //   4. higher average coverage of the six core services (whole %)  5. lower upkeep per zoned cell (whole ₡)
+  var CORE_SERVICES = ['fire_rescue', 'police', 'healthcare', 'education', 'parks', 'communications'];
+  var TIE_BREAK = [
+    { key: 'errors', label: 'errors', better: 'lower' },
+    { key: 'warnings', label: 'warnings', better: 'lower' },
+    { key: 'zonedSharePct', label: 'zoned share of the tile', better: 'higher' },
+    { key: 'coreCoveragePct', label: 'core service coverage', better: 'higher' },
+    { key: 'upkeepPerZonedCell', label: 'upkeep per zoned cell', better: 'lower' }
+  ];
+  function scorecard(layout, errors, warnings, stats) {
+    var zoned = Object.keys(stats.zoneCells).reduce(function (s, k) { return s + stats.zoneCells[k]; }, 0);
+    var area = layout.bounds ? layout.bounds.w * layout.bounds.h : null;
+    var cov = CORE_SERVICES.map(function (g) { return stats.coverage[g] || 0; });
+    return {
+      errors: errors.length,
+      warnings: warnings.length,
+      zonedSharePct: area ? Math.round(zoned / area * 100) : null,
+      coreCoveragePct: Math.round(cov.reduce(function (a, b) { return a + b; }, 0) / CORE_SERVICES.length),
+      upkeepPerZonedCell: zoned ? Math.round(stats.upkeepPerMonth / zoned) : null
+    };
+  }
+  // compare(resultA, resultB) -> { winner: 'A' | 'B' | 'tie', decidedBy, a, b }
+  function compare(ra, rb) {
+    var a = ra.stats ? ra.stats.score : ra, b = rb.stats ? rb.stats.score : rb;
+    for (var i = 0; i < TIE_BREAK.length; i++) {
+      var t = TIE_BREAK[i], x = a[t.key], y = b[t.key];
+      if (x === y || x == null || y == null) continue;
+      var aWins = t.better === 'lower' ? x < y : x > y;
+      return { winner: aWins ? 'A' : 'B', decidedBy: t.label, step: i + 1, a: a, b: b };
+    }
+    return { winner: 'tie', decidedBy: null, step: null, a: a, b: b };
   }
 
   // ---------- rendering ----------
@@ -475,7 +513,19 @@
       (s.catalogRead.confirmed.length ? ' (' + s.catalogRead.confirmed.map(function (f) { return esc(f.replace('catalog/', '')); }).join(', ') + ')' : '') + '</div>');
     var cv = Object.keys(s.coverage);
     if (cv.length) h.push('<div><b>Service coverage of zoned cells</b> (straight-line, optimistic): ' + cv.map(function (k) { return k + ' ' + s.coverage[k] + '%'; }).join(' · ') + '</div>');
-    h.push('<div style="color:#868e96;font-size:12px;margin-top:6px">Checked by cs2 validator · data from the Cities: Skylines II Wiki (CC BY-NC-SA)</div></div>');
+    var sc = s.score;
+    if (sc) {
+      var cell = 'padding:2px 10px;border-top:1px solid #dee2e6';
+      h.push('<table style="border-collapse:collapse;margin-top:8px;font-size:13px"><caption style="text-align:left;font-weight:600;padding-bottom:2px">' +
+        'Scorecard (tie-break order, first difference decides)</caption>' +
+        [['1. Errors', sc.errors, 'fewer'], ['2. Warnings', sc.warnings, 'fewer'],
+         ['3. Zoned share of tile', sc.zonedSharePct == null ? 'n/a (no bounds)' : sc.zonedSharePct + '%', 'higher'],
+         ['4. Core service coverage', sc.coreCoveragePct + '%', 'higher'],
+         ['5. Upkeep per zoned cell', sc.upkeepPerZonedCell == null ? 'n/a' : '₡' + sc.upkeepPerZonedCell, 'lower']
+        ].map(function (r) { return '<tr><td style="' + cell + '">' + r[0] + '</td><td style="' + cell + ';font-weight:600">' + r[1] + '</td><td style="' + cell + ';color:#868e96">' + r[2] + ' is better</td></tr>'; }).join('') +
+        '</table>');
+    }
+    h.push('<div style="color:#868e96;font-size:12px;margin-top:6px">Checked by cs2 validator ' + VERSION + ' · data extracted from the Cities: Skylines II game files</div></div>');
     return h.join('');
   }
 
@@ -495,5 +545,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.4.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: VERSION, load: load, validate: validate, compare: compare, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });

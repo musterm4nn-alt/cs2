@@ -9,8 +9,8 @@ automatically, so follow the format exactly.
   It lists about 20 catalog files, each under 7,000 characters (web fetch tools may cut longer pages off). Always read
   the `zones-roads` files, then the files for the buildings you need (services, education & culture, parks & parking,
   utilities, transport, signature buildings).
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -64,6 +64,12 @@ Special sites the validator cannot see (it only warns): placement `water` needs 
 `track` buildings must touch a matching rail/tram/subway track, `resource:*` needs that natural resource,
 `over_road` crosses an existing road.
 
+## How layouts are ranked
+
+The validator report ends with a scorecard. Two layouts are compared in this order; the first difference decides:
+1. fewer errors, 2. fewer warnings, 3. higher zoned share of the tile, 4. higher average coverage of fire, police,
+health, education, parks and telecom, 5. lower upkeep per zoned cell.
+
 ## Roads
 
 Roads are polylines along their **centre line**: `{"id":"r1","type":"four_lane_road","path":[[0,20],[120,20]]}`.
@@ -100,7 +106,7 @@ segments are easiest to validate. Road widths come from the game's road sections
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app')).then(result => {

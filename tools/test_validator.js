@@ -191,6 +191,35 @@ test('coverage never exceeds 100% with fractional zone sizes', () => {
   assert(Object.values(r.stats.coverage).every((v) => v <= 100), JSON.stringify(r.stats.coverage));
 });
 
+test('scorecard values for the sample layout', () => {
+  const sc = CS2.validate(sample, { data }).stats.score;
+  assert.strictEqual(sc.errors, 0);
+  assert.strictEqual(sc.zonedSharePct, Math.round(936 / (120 * 60) * 100));   // 4 zones of 39x6 on a 120x60 tile
+  assert.strictEqual(sc.coreCoveragePct, Math.round(500 / 6));               // 5 of 6 core services at 100%, no telecom
+  assert.strictEqual(sc.upkeepPerZonedCell, Math.round(295500 / 936));
+});
+
+test('compare follows the published tie-break order', () => {
+  const base = { errors: 0, warnings: 0, zonedSharePct: 40, coreCoveragePct: 90, upkeepPerZonedCell: 50 };
+  const v = (o) => ({ stats: { score: Object.assign({}, base, o) } });
+  let c = CS2.compare(v({ errors: 1, zonedSharePct: 80 }), v({}));
+  assert.deepStrictEqual([c.winner, c.decidedBy], ['B', 'errors']);
+  c = CS2.compare(v({ warnings: 2 }), v({ warnings: 1 }));
+  assert.deepStrictEqual([c.winner, c.decidedBy], ['B', 'warnings']);
+  c = CS2.compare(v({ zonedSharePct: 41, upkeepPerZonedCell: 999 }), v({}));
+  assert.deepStrictEqual([c.winner, c.decidedBy], ['A', 'zoned share of the tile']);
+  c = CS2.compare(v({ coreCoveragePct: 85 }), v({}));
+  assert.deepStrictEqual([c.winner, c.decidedBy], ['B', 'core service coverage']);
+  c = CS2.compare(v({ upkeepPerZonedCell: 49 }), v({}));
+  assert.deepStrictEqual([c.winner, c.decidedBy], ['A', 'upkeep per zoned cell']);
+  assert.strictEqual(CS2.compare(v({}), v({})).winner, 'tie');
+});
+
+test('report shows the scorecard', () => {
+  const html = CS2.reportHTML(CS2.validate(sample, { data }));
+  assert(html.includes('Scorecard') && html.includes('Zoned share of tile') && html.includes('game files'));
+});
+
 test('renderer produces an SVG and a report', () => {
   const r = CS2.validate(sample, { data });
   const svg = CS2.renderSVG(r);

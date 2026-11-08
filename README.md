@@ -22,7 +22,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>
@@ -45,6 +45,17 @@ The validator checks:
 - for tiles with `"repeatable": true`: roads leaving an edge continue on the opposite edge with the same type
 
 It also reports zoned cells per type, upkeep, service jobs and straight-line service coverage.
+
+## Ranking two layouts
+
+`result.stats.score` holds a scorecard, and `CS2.compare(resultA, resultB)` returns the winner and the step that
+decided it. The order is fixed; the first difference decides:
+
+1. fewer errors
+2. fewer warnings
+3. higher zoned share of the tile (whole %, needs `bounds`)
+4. higher average coverage of the six core services: fire, police, health, education, parks, telecom (whole %)
+5. lower upkeep per zoned cell (whole ₡)
 
 ## Where the data comes from
 

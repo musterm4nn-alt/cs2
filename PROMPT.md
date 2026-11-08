@@ -18,7 +18,7 @@ Requirements:
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as a single standalone index.html page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -32,6 +32,8 @@ Also explain on the page, briefly:
 
 - The validator report at the bottom of each page gives an objective score: errors, warnings, zoned cells per type,
   upkeep and rough service coverage. With the fixed 200 × 200 tile these numbers are directly comparable.
+- When both layouts are valid, the scorecard at the bottom of the report decides: compare the five rows in order;
+  the first difference wins.
 - Check the tile edges yourself: roads leaving one edge should line up with the opposite edge.
 - To re-check any model's layout yourself, copy its layout JSON into `examples/index.html` and press Check.
 - Models that can't browse will fail to read the catalog; their validator report will be full of "Unknown asset" errors.
@@ -40,6 +42,8 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
+- **v2.5.0:** the report ends with a scorecard and `CS2.compare(a, b)` applies the fixed tie-break order (errors,
+  warnings, zoned share, core service coverage, upkeep per zoned cell). Validation is unchanged.
 - **v2.4.0:** a battle transcript showed Code Arena's `web_fetch` silently cuts every page at 8,000 characters. The
   catalog is now about 20 files of under 7,000 characters each (RULES.md and CATALOG.md fit too), so every file can be
   read in one fetch. New rule: a layout must contain residential, commercial and office zoning; a roads-only or
