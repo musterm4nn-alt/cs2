@@ -1,31 +1,32 @@
-# CS2 catalog: zones, roads and tracks (part 1 of 2)
+# CS2 catalog: zones, roads and tracks (part 1 of 3)
 
 Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.
+High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).
 Road width comes from the game's road sections; roads are drawn along their centre line.
 
 
 ## Zones
 
-id | name | family | lot sizes | themes | DLC
----|---|---|---|---|---
-commercial_high | High Density Business | commercial | 2×2 to 6×6 | EU/NA | 
-commercial_low | Low Density Business | commercial | 2×2 to 6×6 | EU/NA | 
-commercial_low_waterfront | Low Density Waterfront Business | commercial | 2×2 to 5×6 | EU/NA | Bridges & Ports
-dragon_gate_low_density_business | Dragon Gate Low Density Business | commercial | 2×2 to 6×6 |  | Dragon Gate
-industrial_manufacturing | Industrial Manufacturing | industrial | 2×2 to 6×6 |  | 
-high_density_office_evolution | High Density Office Evolution | office | 2×2 to 5×6 |  | Office Evolution
-office_high | High Density Offices | office | 2×2 to 6×6 |  | 
-office_low | Low Density Offices | office | 2×2 to 6×6 |  | 
-mediterranean_heritage_medium_density_housing | Mediterranean Heritage Medium Density Housing | residential | 2×2 to 3×3 |  | Mediterranean Heritage
-residential_high | High Density Housing | residential | 2×2 to 6×6 | EU/NA | 
-residential_low | Low Density Housing | residential | 2×2 to 4×6 | EU/NA | 
-residential_low_waterfront | Low Density Waterfront Housing | residential | 2×2 to 4×6 | EU/NA | 
-residential_lowrent | Low Rent Housing | residential | 2×2 to 6×6 |  | 
-residential_medium | Medium Density Housing | residential | 2×2 to 6×6 | EU/NA | 
-residential_medium_row | Medium Density Row Housing | residential | 1×2 to 1×6 | EU/NA | 
-residential_mixed | Mixed Housing | residential | 2×2 to 6×6 | EU/NA | 
-residential_mixed_old_town | Mixed Old Town-Style Apartment Buildings | residential | 1×2 to 4×4 | EU/NA | 
-urban_promenades_mixed_housing | Urban Promenades Mixed Housing | residential | 2×2 to 4×6 |  | Urban Promenades
+id | name | family | density | lot sizes | themes | DLC
+---|---|---|---|---|---|---
+commercial_high | High Density Business | commercial | high | 2×2 to 6×6 | EU/NA | 
+commercial_low | Low Density Business | commercial | low | 2×2 to 6×6 | EU/NA | 
+commercial_low_waterfront | Low Density Waterfront Business | commercial | low | 2×2 to 5×6 | EU/NA | Bridges & Ports
+dragon_gate_low_density_business | Dragon Gate Low Density Business | commercial | low | 2×2 to 6×6 |  | Dragon Gate
+industrial_manufacturing | Industrial Manufacturing | industrial | industrial | 2×2 to 6×6 |  | 
+high_density_office_evolution | High Density Office Evolution | office | high | 2×2 to 5×6 |  | Office Evolution
+office_high | High Density Offices | office | high | 2×2 to 6×6 |  | 
+office_low | Low Density Offices | office | low | 2×2 to 6×6 |  | 
+mediterranean_heritage_medium_density_housing | Mediterranean Heritage Medium Density Housing | residential | medium | 2×2 to 3×3 |  | Mediterranean Heritage
+residential_high | High Density Housing | residential | high | 2×2 to 6×6 | EU/NA | 
+residential_low | Low Density Housing | residential | low | 2×2 to 4×6 | EU/NA | 
+residential_low_waterfront | Low Density Waterfront Housing | residential | low | 2×2 to 4×6 | EU/NA | 
+residential_lowrent | Low Rent Housing | residential | high | 2×2 to 6×6 |  | 
+residential_medium | Medium Density Housing | residential | medium | 2×2 to 6×6 | EU/NA | 
+residential_medium_row | Medium Density Row Housing | residential | medium | 1×2 to 1×6 | EU/NA | 
+residential_mixed | Mixed Housing | residential | medium | 2×2 to 6×6 | EU/NA | 
+residential_mixed_old_town | Mixed Old Town-Style Apartment Buildings | residential | medium | 1×2 to 4×4 | EU/NA | 
+urban_promenades_mixed_housing | Urban Promenades Mixed Housing | residential | medium | 2×2 to 4×6 |  | Urban Promenades
 
 ## Roads: small
 
@@ -80,6 +81,5 @@ wide_quay_with_four_lane_road | Wide Quay With Four-Lane Road | medium | 4 | 50 
 wide_quay_with_four_lane_road_quaylarge02 | Wide Quay With Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
 wide_quay_with_four_lane_road_quaylarge03 | Wide Quay With Four-Lane Road | medium | 4 | 50 | 24 | 3 | yes | yes
 four_lane_angled_parking_road | Four-Lane Angled Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
-four_lane_perpendicular_parking_road | Four-Lane Perpendicular Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
 
-END OF FILE catalog/zones-roads-1.md | 63 entries | check fa62bf
+END OF FILE catalog/zones-roads-1.md | 62 entries | check 9f26e9

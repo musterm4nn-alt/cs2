@@ -5,12 +5,12 @@ automatically, so follow the format exactly.
 
 ## Data
 
-- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.0.0/CATALOG.md
+- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.1.0/CATALOG.md
   It lists about 20 catalog files, each under 7,000 characters (web fetch tools may cut longer pages off). Always read
   the `zones-roads` files, then the files for the buildings you need (services, education & culture, parks & parking,
   utilities, transport, signature buildings).
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/validator.js
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -51,6 +51,8 @@ exactly as written, into the layout's `"catalogMarkers"` list. The validator rep
    `upgrade` / `fixed_extension` ids go only in the `upgrades` list of a matching parent, each at most once.
 7. **Zoning required, no industry.** The layout must contain residential, commercial and office zone blocks.
    No `industrial_*` zones and no industrial signature buildings.
+   High-density zones (`density: high` in the catalog) must be fed by a road wider than 1 cell: along alleys,
+   gravel roads and small pedestrian streets only low or medium density is allowed.
 8. **One connected road network.** Every normal road must connect to the others. Roads connect where their centre
    lines cross or where one ends against another (at its centre line or its edge). Highways and tracks are separate
    networks and are not checked.
@@ -106,7 +108,7 @@ segments are easiest to validate. Road widths come from the game's road sections
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app')).then(result => {

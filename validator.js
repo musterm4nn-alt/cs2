@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -11,14 +11,14 @@
   else root.CS2 = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var VERSION = '3.0.0';
+  var VERSION = '3.1.0';
 
   var SCRIPT_BASE = (function () {
     try {
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.1.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -323,9 +323,10 @@
           if (!onTrack) warn(it.ref, '"' + a.name + '" is a rail/tram/subway building; connect it to a matching track.');
         }
       } else if (it.kind === 'zone') {
-        var z = it.inst, S2 = sideStrips(z.x, z.y, z.w, z.h), sides = {};
+        var z = it.inst, S2 = sideStrips(z.x, z.y, z.w, z.h), sides = {}, sideRoads = {};
         Object.keys(S2).forEach(function (k) {
-          sides[k] = touchingRoads(S2[k]).some(function (r) { return r.type.allowsZoning; });
+          sideRoads[k] = touchingRoads(S2[k]).filter(function (r) { return r.type.allowsZoning; });
+          sides[k] = sideRoads[k].length > 0;
         });
         var maxD = data.rules.maxZoneDepthCells;
         var depthNS = (sides.north && sides.south) ? 2 * maxD : (sides.north || sides.south) ? maxD : Infinity;
@@ -333,6 +334,18 @@
         var okNS = depthNS !== Infinity && z.h <= depthNS + EPS, okWE = depthWE !== Infinity && z.w <= depthWE + EPS;
         if (depthNS === Infinity && depthWE === Infinity) err(it.ref, 'Zone does not touch any zonable road (highways and tracks do not count).');
         else if (!okNS && !okWE) err(it.ref, 'Zone is deeper than ' + maxD + ' cells from its road (' + z.w + '×' + z.h + '). Zoning only reaches 6 cells from a road.');
+        else if (it.zone.density === 'high') {
+          // v3.1: high-density zoning must be fed by a road wider than 1 cell. Only the roads the zoning actually
+          // reaches from count: those on a side within the zoning depth of the whole block.
+          var narrow = function (r) { return r.type.narrow != null ? r.type.narrow : r.type.widthCells <= 1; };
+          var feeding = [].concat(okNS ? (sideRoads.north || []).concat(sideRoads.south || []) : [],
+                                  okWE ? (sideRoads.west || []).concat(sideRoads.east || []) : []);
+          if (feeding.length && feeding.every(narrow)) {
+            var names = feeding.map(function (r) { return r.type.id; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+            err(it.ref, 'High-density zone "' + it.zone.id + '" is fed only by 1-cell-wide roads (' + names.join(', ') + '). ' +
+              'Along those roads only low or medium density zoning is allowed; front it on a wider road or use a lower density.');
+          }
+        }
       }
     });
 

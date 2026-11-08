@@ -1,8 +1,15 @@
-# CS2 catalog: zones, roads and tracks (part 2 of 2)
+# CS2 catalog: zones, roads and tracks (part 2 of 3)
 
 Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.
+High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).
 Road width comes from the game's road sections; roads are drawn along their centre line.
 
+
+## Roads: medium (continued)
+
+id | name | category | lanes | km/h | width m | width cells | zoning | building access
+---|---|---|---|---|---|---|---|---
+four_lane_perpendicular_parking_road | Four-Lane Perpendicular Parking Road | medium | 4 | 50 | 32 | 4 | yes | yes
 
 ## Roads: large
 
@@ -82,8 +89,5 @@ two_way_train_track_lift_bridge | Two-Way Train Track Lift Bridge | track |  | 8
 double_train_track_lift_bridge | Double Train Track Lift Bridge | track |  | 80 | 10.93 | 1.366 | no | no
 double_subway_track | Double Subway Track | track |  | 120 | 12 | 1.5 | no | no
 double_subway_track_lift_bridge | Double Subway Track Lift Bridge | track |  | 120 | 12 | 1.5 | no | no
-double_subway_track_truss_arch_bridge | Double Subway Track Truss Arch Bridge | track |  | 120 | 12 | 1.5 | no | no
-double_train_track | Double Train Track | track |  | 160 | 12 | 1.5 | no | no
-double_train_track_truss_arch_bridge | Double Train Track Truss Arch Bridge | track |  | 160 | 12 | 1.5 | no | no
 
-END OF FILE catalog/zones-roads-2.md | 57 entries | check b968be
+END OF FILE catalog/zones-roads-2.md | 55 entries | check fb36a5

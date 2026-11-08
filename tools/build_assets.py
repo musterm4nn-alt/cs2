@@ -125,6 +125,19 @@ def zone_key(ref):
 
 ZONE_ALIAS = {}
 
+# Zone density (v3.1): high-density zones may not rely only on 1-cell-wide roads (alleys, gravel roads, small
+# pedestrian streets). Mixed housing counts as medium; low rent housing (large apartment blocks) as high.
+ZONE_DENSITY = {
+    "residential_high": "high", "residential_lowrent": "high", "commercial_high": "high", "office_high": "high",
+    "high_density_office_evolution": "high",
+    "residential_medium": "medium", "residential_medium_row": "medium", "residential_mixed": "medium",
+    "residential_mixed_old_town": "medium", "urban_promenades_mixed_housing": "medium",
+    "mediterranean_heritage_medium_density_housing": "medium",
+    "residential_low": "low", "residential_low_waterfront": "low", "commercial_low": "low",
+    "commercial_low_waterfront": "low", "dragon_gate_low_density_business": "low", "office_low": "low",
+    "industrial_manufacturing": "industrial",
+}
+
 
 def build_zones(prefabs, names):
     zones = {}
@@ -165,6 +178,10 @@ def build_zones(prefabs, names):
         if lots.get(zid):
             ws, ds = [w for w, _ in lots[zid]], [d for _, d in lots[zid]]
             z["lot"] = {"minW": min(ws), "maxW": max(ws), "minD": min(ds), "maxD": max(ds), "buildingCount": len(lots[zid])}
+    for zid, z in zones.items():
+        if zid not in ZONE_DENSITY:
+            raise SystemExit(f"zone {zid} has no density in ZONE_DENSITY")
+        z["density"] = ZONE_DENSITY[zid]
     return sorted(zones.values(), key=lambda z: (z["family"], z["id"]))
 
 
@@ -229,7 +246,7 @@ def build_roads(prefabs, names, by):
             "lanes": lanes or None,
             "speedKmh": round(f["m_SpeedLimit"] / 2) if f.get("m_SpeedLimit") else None,
             "widthM": width, "widthCells": round(width / CELL, 3),
-            "allowsZoning": zoning, "buildingAccess": not highway and not is_track,
+            "allowsZoning": zoning, "buildingAccess": not highway and not is_track, "narrow": width <= CELL,
             "dlc": dlc_of(p), "upkeepNote": None,
         })
         roads[-1].pop("upkeepNote")
@@ -463,7 +480,7 @@ PACK_OF_CATEGORY = {
 }
 PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
-RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.0.0/"
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.1.0/"
 LEGEND = [
     "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
     "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
@@ -561,15 +578,16 @@ def write_catalog(out):
     for z in out["zones"]:
         lot = z["lot"]
         lot_s = f"{lot['minW']}×{lot['minD']} to {lot['maxW']}×{lot['maxD']}" if lot else "unknown"
-        zone_rows.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
+        zone_rows.append(f"{z['id']} | {z['name']} | {z['family']} | {z['density']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
     road_rows = [f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
                  f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}"
                  for r in out["roads"]]
     road_header = ["id | name | category | lanes | km/h | width m | width cells | zoning | building access",
                    "---|---|---|---|---|---|---|---|---"]
     zr_intro = ["Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.",
+                "High-density zones need a road wider than 1 cell (not only alleys, gravel or small pedestrian streets).",
                 "Road width comes from the game's road sections; roads are drawn along their centre line."]
-    road_secs = [("Zones", ["id | name | family | lot sizes | themes | DLC", "---|---|---|---|---|---"], zone_rows, [])]
+    road_secs = [("Zones", ["id | name | family | density | lot sizes | themes | DLC", "---|---|---|---|---|---|---"], zone_rows, [])]
     for cat_name in ("small", "medium", "large", "highway", "transit_lane", "port", "track"):
         rows = [row for row, r in zip(road_rows, out["roads"]) if r["category"] == cat_name]
         if rows:

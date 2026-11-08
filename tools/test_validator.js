@@ -220,6 +220,41 @@ test('report shows the scorecard', () => {
   assert(html.includes('Scorecard') && html.includes('Zoned share of tile') && html.includes('game files'));
 });
 
+test('high-density zoning only along 1-cell roads is an error; medium is fine; a wider road fixes it', () => {
+  const base = () => ({
+    bounds: { w: 60, h: 30 },
+    roads: [
+      { id: 'street', type: 'two_lane_road', path: [[0, 5], [60, 5]] },
+      { id: 'lane', type: 'alley', path: [[30, 6], [30, 30]] }
+    ],
+    zones: [], buildings: []
+  });
+  const narrowMsg = (l) => msgs(CS2.validate(l, { data })).filter((m) => /fed only by 1-cell-wide roads/.test(m));
+  let l = base(); l.zones.push({ id: 'hi', type: 'residential_high', x: 30.5, y: 12, w: 6, h: 12 });
+  assert.strictEqual(narrowMsg(l).length, 1, 'high density on an alley must fail');
+  l = base(); l.zones.push({ id: 'mid', type: 'residential_mixed', x: 30.5, y: 12, w: 6, h: 12 });
+  assert.strictEqual(narrowMsg(l).length, 0, 'medium density on an alley is allowed');
+  l = base(); l.zones.push({ id: 'low', type: 'commercial_low', x: 30.5, y: 12, w: 6, h: 12 });
+  assert.strictEqual(narrowMsg(l).length, 0, 'low density on an alley is allowed');
+  l = base(); l.zones.push({ id: 'corner', type: 'office_high', x: 24, y: 6, w: 5.5, h: 6 });
+  assert.strictEqual(narrowMsg(l).length, 0, 'high density touching a two-lane road as well is allowed');
+  // loophole: a long strip fed by an alley along its long side that only touches a real road at its short end
+  l = base(); l.roads.push({ id: 'lane2', type: 'alley', path: [[0, 20], [29.5, 20]] });
+  l.zones.push({ id: 'strip', type: 'residential_high', x: 0, y: 20.5, w: 29.5, h: 6 });
+  assert.strictEqual(narrowMsg(l).length, 1, 'a strip fed by an alley must fail even if its short end touches another road');
+  // a strip between an alley and a two-lane road (depth 6) is fed by the two-lane road: allowed
+  l = base(); l.roads.push({ id: 'lane3', type: 'alley', path: [[0, 12.5], [29.5, 12.5]] });
+  l.zones.push({ id: 'between', type: 'residential_high', x: 0, y: 6, w: 29.5, h: 6 });
+  assert.strictEqual(narrowMsg(l).length, 0, 'high density fronting a two-lane road is allowed even with an alley behind');
+});
+
+test('every zone has a density and roads say whether they are 1 cell wide', () => {
+  data.zones.forEach((z) => assert(['low', 'medium', 'high', 'industrial'].includes(z.density), z.id));
+  const narrowZonable = data.roads.filter((r) => r.narrow && r.allowsZoning).map((r) => r.id).sort();
+  assert(narrowZonable.includes('alley') && narrowZonable.includes('small_pedestrian_street'));
+  assert(!data.roads.find((r) => r.id === 'two_lane_road').narrow);
+});
+
 test('renderer produces an SVG and a report', () => {
   const r = CS2.validate(sample, { data });
   const svg = CS2.renderSVG(r);
