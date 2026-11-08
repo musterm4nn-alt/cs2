@@ -30,6 +30,8 @@ Sorted by wins, then win rate, then average zoned share of valid layouts.
 | Model | Battles | Wins | Losses | Draws | Valid layouts | Avg zoned share (valid) |
 |---|---|---|---|---|---|---|
 
+*Round 5 is waiting for model names; the leaderboard is filled in once they are known.*
+
 ## Battles (Code Arena)
 
 Score columns: errors / warnings / zoned share / core coverage / ₡ per zoned cell. "Read" = catalog files confirmed
@@ -37,6 +39,12 @@ read completely (of 20). "Decided by" = the scorecard row that decided the battl
 
 | Round | Battle | Model A | Score A | Read A | Model B | Score B | Read B | Winner | Decided by |
 |---|---|---|---|---|---|---|---|---|---|
+| 5¹ | 05-01 | *(name pending)* | 0 / 0 / 64% / 100% / ₡30 | 13 | *(name pending)* | no layout | – | **A** | no output |
+| 5¹ | 05-02 | *(name pending)* | 0 / 0 / 26% / 100% / ₡42 | 12 | *(name pending)* | 0 / 0 / 38% / 100% / ₡61 | 12 | **B** | zoned share |
+
+¹ Round 5 ran on v3.0.0 (the prompt linked v3.0.0). All layouts were re-checked under the v3.2.0 rules: no layout
+breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
+models saw the catalog without the zone density column.
 
 ## Runs outside Arena
 
