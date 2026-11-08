@@ -11,13 +11,13 @@ Before you design anything, fetch and read these:
 - Asset catalog with real in-game sizes: https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
 
 Requirements:
-- The tile is exactly 200 × 200 cells (1.6 × 1.6 km). Set "bounds": {"w": 200, "h": 200}. Everything must fit inside.
+- The tile is exactly 200 × 200 cells (1.6 × 1.6 km). Set "bounds": {"w": 200, "h": 200} and "repeatable": true. Everything must fit inside.
 - The tile must repeat: roads that reach an edge must continue on the opposite edge at the same position and with the same road type, so copies can be placed side by side.
 - Use only asset, zone and road ids from the catalog, with their real sizes, and follow every rule in RULES.md.
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as one standalone HTML page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -37,5 +37,8 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
+- **v2.2.0:** new checks: one connected road network, no roads/tracks on top of each other, and tile edges must
+  line up when the layout sets `"repeatable": true` (the prompt now asks for it). Round-2 layouts would score the
+  same except 02-04-A, which gets one more error for its tram track running along a boulevard.
 - **v2.1.0:** corrected road widths. Pedestrian Street 24 → 16 m, Four-Lane Divided 38 → 24 m, Six-Lane Divided
   46 → 32 m, Eight-Lane Divided 56 → 40 m, one-way parking alleys 21 → 16 m. Results from v2.0.x used the old widths.

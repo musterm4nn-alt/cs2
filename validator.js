@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -17,7 +17,7 @@
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -91,6 +91,102 @@
   function bbox(poly) {
     var xs = poly.map(function (p) { return p[0]; }), ys = poly.map(function (p) { return p[1]; });
     return { x0: Math.min.apply(null, xs), y0: Math.min.apply(null, ys), x1: Math.max.apply(null, xs), y1: Math.max.apply(null, ys) };
+  }
+
+  // ---------- road network checks ----------
+  function ptSegDist(p, a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+    var t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
+    return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+  }
+  function segsCross(a, b, c, d) {
+    function o(p, q, r) { var v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); return Math.abs(v) < 1e-9 ? 0 : v > 0 ? 1 : -1; }
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  }
+  function segDist(s, t) {
+    if (segsCross(s.a, s.b, t.a, t.b)) return 0;
+    return Math.min(ptSegDist(s.a, t.a, t.b), ptSegDist(s.b, t.a, t.b), ptSegDist(t.a, s.a, s.b), ptSegDist(t.b, s.a, s.b));
+  }
+  function dir(s) { var dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], L = Math.hypot(dx, dy) || 1; return [dx / L, dy / L]; }
+
+  function checkNetwork(layout, roads, err, warn, info) {
+    if (!roads.length) return;
+    var n = roads.length, i, j;
+
+    // 1) roads or tracks running along each other (crossing at an angle is a normal intersection)
+    var reported = {};
+    for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+      var s = roads[i], t = roads[j];
+      if (s.ref === t.ref) continue;
+      var da = dir(s), db = dir(t);
+      if (Math.abs(da[0] * db[1] - da[1] * db[0]) > 0.17) continue;   // not parallel (> ~10 degrees apart)
+      var pen = overlap(s.poly, t.poly);
+      if (pen <= EPS) continue;
+      // length of the shared stretch along the road direction
+      var pa = [s.a, s.b].map(function (p) { return p[0] * da[0] + p[1] * da[1]; }).sort(function (x, y) { return x - y; });
+      var pb = [t.a, t.b].map(function (p) { return p[0] * da[0] + p[1] * da[1]; }).sort(function (x, y) { return x - y; });
+      var shared = Math.min(pa[1], pb[1]) - Math.max(pa[0], pb[0]);
+      var key = s.ref + '|' + t.ref;
+      if (shared > 1 && !reported[key]) {
+        reported[key] = true;
+        err(s.ref, 'Runs along ' + t.ref + ' for ' + Math.round(shared) + ' cells (overlapping). Parallel roads/tracks need their own space; ' +
+          'only crossings at an angle form intersections.');
+      }
+    }
+
+    // 2) connectivity of the normal road network (highways and tracks are separate networks)
+    var normal = roads.map(function (r, k) { return k; }).filter(function (k) { return roads[k].type.buildingAccess; });
+    var parent = {};
+    normal.forEach(function (k) { parent[k] = k; });
+    function find(k) { while (parent[k] !== k) { parent[k] = parent[parent[k]]; k = parent[k]; } return k; }
+    function join(a, b) { parent[find(a)] = find(b); }
+    normal.forEach(function (a, x) {
+      normal.slice(x + 1).forEach(function (b) {
+        var lim = Math.max(roads[a].type.widthCells, roads[b].type.widthCells) / 2 + 0.25;
+        if (segDist(roads[a], roads[b]) <= lim) join(a, b);
+      });
+    });
+
+    // 3) edge matching for tiles: an end on one edge needs a partner of the same type on the opposite edge
+    var B = layout.bounds;
+    if (B) {
+      var E = 0.01, ends = { w: [], e: [], n: [], s: [] };
+      roads.forEach(function (r, k) {
+        [r.a, r.b].forEach(function (p) {
+          if (Math.abs(p[0]) < E) ends.w.push({ pos: p[1], k: k });
+          if (Math.abs(p[0] - B.w) < E) ends.e.push({ pos: p[1], k: k });
+          if (Math.abs(p[1]) < E) ends.n.push({ pos: p[0], k: k });
+          if (Math.abs(p[1] - B.h) < E) ends.s.push({ pos: p[0], k: k });
+        });
+      });
+      var strict = layout.repeatable === true, problems = 0;
+      [['w', 'e', 'west', 'east'], ['e', 'w', 'east', 'west'], ['n', 's', 'north', 'south'], ['s', 'n', 'south', 'north']].forEach(function (q) {
+        ends[q[0]].forEach(function (x) {
+          var r = roads[x.k];
+          var same = ends[q[1]].filter(function (y) { return Math.abs(y.pos - x.pos) < 0.51; });
+          var match = same.filter(function (y) { return roads[y.k].type.id === r.type.id; })[0];
+          if (match) {
+            if (normal.indexOf(x.k) >= 0 && normal.indexOf(match.k) >= 0) join(x.k, match.k);  // connected through the neighbouring tile
+            return;
+          }
+          problems++;
+          var msg = same.length
+            ? r.ref + ' leaves the ' + q[2] + ' edge at ' + x.pos + ' as ' + r.type.id + ', but ' + roads[same[0].k].ref + ' continues on the ' + q[3] + ' edge as ' + roads[same[0].k].type.id + '.'
+            : r.ref + ' leaves the ' + q[2] + ' edge at ' + x.pos + ' but nothing continues on the ' + q[3] + ' edge at that position.';
+          (strict ? err : warn)(r.ref, 'Tile edge mismatch: ' + msg);
+        });
+      });
+      if (!strict && problems) info.push({ ref: 'tile', message: 'Set "repeatable": true on the layout to make tile edge mismatches errors.' });
+    }
+
+    var comps = {};
+    normal.forEach(function (k) { var c = find(k); (comps[c] = comps[c] || []).push(roads[k].ref); });
+    var groups = Object.keys(comps).map(function (c) {
+      return comps[c].filter(function (v, x, arr) { return arr.indexOf(v) === x; });
+    }).sort(function (a, b) { return b.length - a.length; });
+    groups.slice(1).forEach(function (g) {
+      err(g[0], 'Road' + (g.length > 1 ? 's ' + g.join(', ') + ' are' : ' ' + g[0] + ' is') + ' not connected to the main road network.');
+    });
   }
 
   // ---------- validation ----------
@@ -175,6 +271,8 @@
         if (overlap(items[i].poly, roads[r].poly) > EPS) { err(items[i].ref, 'Overlaps road ' + roads[r].ref + '.'); break; }
       }
     }
+
+    checkNetwork(layout, roads, err, warn, info);
 
     var byRef = {}; items.forEach(function (it) { byRef[it.ref] = it; });
     function touchingRoads(poly) {
@@ -371,5 +469,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.1.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.2.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });

@@ -21,7 +21,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>
@@ -37,6 +37,9 @@ The validator checks:
 - sub-buildings sit within the game's maximum distance of a matching parent; upgrades go on a matching parent, once
 - no industrial zoning or industrial signature buildings (default; pass `{ noIndustry: false }` to allow them)
 - the layout stays inside its bounds
+- all normal roads form one connected network (highways and tracks are separate)
+- no road or track runs along another one overlapping (crossings are fine)
+- for tiles with `"repeatable": true`: roads leaving an edge continue on the opposite edge with the same type
 
 It also reports zoned cells per type, upkeep, service jobs and straight-line service coverage.
 

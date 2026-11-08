@@ -101,6 +101,53 @@ test('highway gives no access', () => {
   assert(msgs(CS2.validate(l, { data })).some((m) => /highway/.test(m)));
 });
 
+test('sample layout has matching tile edges and one road network', () => {
+  const l = clone(sample); l.repeatable = true;
+  const r = CS2.validate(l, { data });
+  assert.deepStrictEqual(msgs(r), []);
+});
+
+test('road leaving one edge with no partner: warning, or error when repeatable', () => {
+  const l = clone(sample);
+  l.roads.push({ id: 'spur', type: 'two_lane_road', path: [[100, 0], [100, 9]] });
+  let r = CS2.validate(l, { data });
+  assert(r.warnings.some((w) => /Tile edge mismatch: spur leaves the north edge/.test(w.message)), JSON.stringify(r.warnings));
+  assert(!msgs(r).some((m) => /Tile edge mismatch/.test(m)));
+  l.repeatable = true;
+  r = CS2.validate(l, { data });
+  assert(msgs(r).some((m) => /Tile edge mismatch: spur/.test(m)));
+});
+
+test('road type changing across the tile edge is a mismatch', () => {
+  const l = clone(sample); l.repeatable = true;
+  l.roads.find((r) => r.id === 'north_st').path = [[0, 10], [60, 10]];
+  l.roads.push({ id: 'north_st_e', type: 'four_lane_road', path: [[60, 10], [120, 10]] });
+  assert(msgs(CS2.validate(l, { data })).some((m) => /continues on the (east|west) edge as/.test(m)));
+});
+
+test('road matched across the edge counts as connected', () => {
+  const l = clone(sample); l.repeatable = true;
+  // a stub that reaches the south edge, connected only via the matching stub on the north edge
+  l.roads.push({ id: 'stub_s', type: 'two_lane_road', path: [[110, 51], [110, 60]] });
+  l.roads.push({ id: 'stub_n', type: 'two_lane_road', path: [[110, 0], [110, 9]] });
+  assert(!msgs(CS2.validate(l, { data })).some((m) => /not connected/.test(m)));
+});
+
+test('road not connected to the network is an error', () => {
+  const l = clone(sample);
+  l.roads.push({ id: 'island_rd', type: 'two_lane_road', path: [[100, 38], [115, 38]] });
+  assert(msgs(CS2.validate(l, { data })).some((m) => /island_rd is not connected/.test(m)));
+});
+
+test('track running along a road is an error, crossing is fine', () => {
+  const l = clone(sample);
+  l.roads.push({ id: 'tram_on_avenue', type: 'double_tram_track', path: [[10, 30], [110, 30]] });
+  assert(msgs(CS2.validate(l, { data })).some((m) => /tram_on_avenue: Runs along avenue/.test(m) || /avenue: Runs along tram_on_avenue/.test(m)));
+  const k = clone(sample);
+  k.roads.push({ id: 'tram_cross', type: 'double_tram_track', path: [[90, 0], [90, 60]] });
+  assert(!msgs(CS2.validate(k, { data })).some((m) => /Runs along/.test(m)));
+});
+
 test('coverage never exceeds 100% with fractional zone sizes', () => {
   const l = clone(sample); l.zones.push({ id: 'frac', type: 'residential_high', x: 100, y: 51, w: 5.5, h: 3.5 });
   const r = CS2.validate(l, { data });

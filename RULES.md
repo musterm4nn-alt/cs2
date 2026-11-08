@@ -6,8 +6,8 @@ automatically, so follow the format exactly.
 ## Data
 
 - Asset list, compact (best for reading): https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -43,6 +43,14 @@ Only use asset, zone and road ids that appear in that data. Never invent buildin
 6. **Sub-buildings and upgrades.** A `sub_building` needs a matching `parent` and must be within its `maxDistanceM`.
    `upgrade` / `fixed_extension` ids go only in the `upgrades` list of a matching parent, each at most once.
 7. **No industry** for this task: no `industrial_*` zones and no industrial signature buildings.
+8. **One connected road network.** Every normal road must connect to the others. Roads connect where their centre
+   lines cross or where one ends against another (at its centre line or its edge). Highways and tracks are separate
+   networks and are not checked.
+9. **No roads on top of roads.** Two roads or tracks may cross at an angle (an intersection), but may not run along
+   each other overlapping. To put trams on a road, use separate tram track next to it, not on top of it.
+10. **Repeatable tiles.** With `"repeatable": true` and `bounds`, every road or track that ends on a tile edge must
+    continue on the opposite edge at the same position with the same type. Roads matched this way also count as
+    connected through the neighbouring tile. Without `"repeatable": true`, mismatches are only warnings.
 
 Special sites the validator cannot see (it only warns): placement `water` needs a shoreline (set `"onWater": true`),
 `track` buildings must touch a matching rail/tram/subway track, `resource:*` needs that natural resource,
@@ -61,6 +69,7 @@ segments are easiest to validate. Road widths come from the game's road sections
 {
   "name": "Repeatable district block",
   "bounds": { "w": 160, "h": 160 },
+  "repeatable": true,
   "roads": [
     { "id": "main", "type": "four_lane_road", "path": [[0, 20], [160, 20]] }
   ],
@@ -75,13 +84,13 @@ segments are easiest to validate. Road widths come from the game's road sections
 }
 ```
 
-`bounds` is optional; with it, anything outside the box is an error.
+`bounds` is optional; with it, anything outside the box is an error. `repeatable` is optional (see rule 10).
 
 ## Using the validator in your HTML page
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.1.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.2.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app')).then(result => {
