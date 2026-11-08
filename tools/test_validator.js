@@ -164,7 +164,7 @@ test('catalog markers: exact lines confirm files, altered ones warn', () => {
 
 test('every catalog file is under 7,000 characters and ends with its marker', () => {
   data.meta.catalog.forEach((c) => {
-    const text = fs.readFileSync(path.join(__dirname, '..', c.file), 'utf8');
+    const text = fs.readFileSync(path.join(__dirname, '..', c.file), 'utf8').replace(/\r/g, '');
     assert(text.length <= 7000, c.file + ' is ' + text.length + ' characters');
     assert.strictEqual(text.trim().split('\n').pop(), c.marker);
   });
@@ -172,7 +172,8 @@ test('every catalog file is under 7,000 characters and ends with its marker', ()
 
 test('every file the prompt sends models to fits in one 8,000-character fetch', () => {
   ['RULES.md', 'CATALOG.md'].forEach((f) => {
-    const n = fs.readFileSync(path.join(__dirname, '..', f), 'utf8').length;
+    // measured as served by GitHub (LF line endings), not as checked out on Windows (CRLF)
+    const n = fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r/g, '').length;
     assert(n <= 7500, f + ' is ' + n + ' characters');
   });
 });
