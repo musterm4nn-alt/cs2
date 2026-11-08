@@ -29,8 +29,10 @@ Sorted by wins, then win rate, then average zoned share of valid layouts.
 
 | Model | Battles | Wins | Losses | Draws | Valid layouts | Avg zoned share (valid) |
 |---|---|---|---|---|---|---|
-
-*Round 5 is waiting for model names; the leaderboard is filled in once they are known.*
+| gemini-3.8-flash | 1 | 1 | 0 | 0 | 1 | 64% |
+| deepseek-v4.1-flash-max | 1 | 1 | 0 | 0 | 1 | 38% |
+| muse-spark-1.3-xhigh | 1 | 0 | 1 | 0 | 1 | 26% |
+| step-5-preview | 1 | 0 | 1 | 0 | 0 | – |
 
 ## Battles (Code Arena)
 
@@ -39,8 +41,8 @@ read completely (of 20). "Decided by" = the scorecard row that decided the battl
 
 | Round | Battle | Model A | Score A | Read A | Model B | Score B | Read B | Winner | Decided by |
 |---|---|---|---|---|---|---|---|---|---|
-| 5¹ | 05-01 | *(name pending)* | 0 / 0 / 64% / 100% / ₡30 | 13 | *(name pending)* | no layout | – | **A** | no output |
-| 5¹ | 05-02 | *(name pending)* | 0 / 0 / 26% / 100% / ₡42 | 12 | *(name pending)* | 0 / 0 / 38% / 100% / ₡61 | 12 | **B** | zoned share |
+| 5¹ | 05-01 | gemini-3.8-flash | 0 / 0 / 64% / 100% / ₡30 | 13 | step-5-preview | no layout | – | **gemini-3.8-flash** | no output |
+| 5¹ | 05-02 | muse-spark-1.3-xhigh | 0 / 0 / 26% / 100% / ₡42 | 12 | deepseek-v4.1-flash-max | 0 / 0 / 38% / 100% / ₡61 | 12 | **deepseek-v4.1-flash-max** | zoned share |
 
 ¹ Round 5 ran on v3.0.0 (the prompt linked v3.0.0). All layouts were re-checked under the v3.2.0 rules: no layout
 breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
