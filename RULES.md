@@ -5,12 +5,12 @@ automatically, so follow the format exactly.
 
 ## Data
 
-- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.2.0/CATALOG.md
+- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/CATALOG.md
   It lists about 20 catalog files, each under 7,000 characters (web fetch tools may cut longer pages off). Always read
   the `zones-roads` files, then the files for the buildings you need (services, education & culture, parks & parking,
   utilities, transport, signature buildings).
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -68,9 +68,13 @@ Special sites the validator cannot see (it only warns): placement `water` needs 
 
 ## How layouts are ranked
 
-The validator report ends with a scorecard. Two layouts are compared in this order; the first difference decides:
-1. fewer errors, 2. fewer warnings, 3. higher zoned share of the tile, 4. higher average coverage of fire, police,
-health, education, parks and telecom, 5. lower upkeep per zoned cell.
+Fewer errors wins; then more points out of 100 (shown in the report). Zoning more does not win on its own:
+- Capacity 25: households and jobs from the zone types' game factors, full marks at 60,000 / 120,000.
+- Balance 15: 1.0–3.0 jobs per household.
+- Services 25: coverage of fire, police, health, education, parks and telecom, and service capacity per household.
+- Traffic 20: arterials (4+ lanes) crossing the tile both ways, little zoning on 6+ lane roads, enough road lanes per household.
+- Cost 15: service upkeep per household, full marks at ₡10 or less.
+- Each warning costs 3 points.
 
 ## Roads
 
@@ -108,15 +112,12 @@ segments are easiest to validate. Road widths come from the game's road sections
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
-  CS2.mount(layout, document.getElementById('app')).then(result => {
-    console.log(result.ok, result.errors, result.stats);
-  });
+  CS2.mount(layout, document.getElementById('app'));
 </script>
 ```
 
-`CS2.mount` downloads the data, checks every rule above, draws the layout to scale and prints a report with errors,
-warnings, zoned cells, upkeep and approximate service coverage. Fix every error before you finish. You can also call
-`await CS2.load()` and then `CS2.validate(layout)` or `CS2.asset('hospital')` to read sizes in your own code.
+`CS2.mount` checks every rule, draws the layout to scale and shows the report and points. Fix every error before you
+finish. `await CS2.load()` then `CS2.validate(layout)` or `CS2.asset('hospital')` work in your own code too.

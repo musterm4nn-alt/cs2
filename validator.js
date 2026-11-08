@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -11,14 +11,14 @@
   else root.CS2 = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var VERSION = '3.2.0';
+  var VERSION = '3.3.0';
 
   var SCRIPT_BASE = (function () {
     try {
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -334,13 +334,14 @@
         var okNS = depthNS !== Infinity && z.h <= depthNS + EPS, okWE = depthWE !== Infinity && z.w <= depthWE + EPS;
         if (depthNS === Infinity && depthWE === Infinity) err(it.ref, 'Zone does not touch any zonable road (highways and tracks do not count).');
         else if (!okNS && !okWE) err(it.ref, 'Zone is deeper than ' + maxD + ' cells from its road (' + z.w + '×' + z.h + '). Zoning only reaches 6 cells from a road.');
-        else if (it.zone.density === 'high') {
+        // the roads the zoning actually reaches from: those on a side within the zoning depth of the whole block
+        var feeding = [].concat(okNS ? (sideRoads.north || []).concat(sideRoads.south || []) : [],
+                                okWE ? (sideRoads.west || []).concat(sideRoads.east || []) : []);
+        it.feeding = feeding;
+        if ((okNS || okWE) && it.zone.density === 'high') {
           // v3.2: high-density zoning must be fed by a road wider than 1 cell or a pedestrian street (1-cell car roads such as
-          // alleys and gravel roads limit density). Only the roads the zoning actually
-          // reaches from count: those on a side within the zoning depth of the whole block.
+          // alleys and gravel roads limit density).
           var narrow = function (r) { return r.type.limitsDensity != null ? r.type.limitsDensity : r.type.widthCells <= 1; };
-          var feeding = [].concat(okNS ? (sideRoads.north || []).concat(sideRoads.south || []) : [],
-                                  okWE ? (sideRoads.west || []).concat(sideRoads.east || []) : []);
           if (feeding.length && feeding.every(narrow)) {
             var names = feeding.map(function (r) { return r.type.id; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
             err(it.ref, 'High-density zone "' + it.zone.id + '" is fed only by 1-cell-wide car roads (' + names.join(', ') + '). ' +
@@ -420,6 +421,7 @@
     }
 
     stats.score = scorecard(layout, errors, warnings, stats);
+    stats.points = points(layout, items, roads, stats, data, warnings);
     return { ok: errors.length === 0, errors: errors, warnings: warnings, info: info, stats: stats, _items: items, _roads: roads };
   }
 
@@ -447,10 +449,119 @@
       upkeepPerZonedCell: zoned ? Math.round(stats.upkeepPerMonth / zoned) : null
     };
   }
+  // ---------- points score (v3.3) ----------
+  // Every threshold lives here so the scoring is transparent; see README "Points score".
+  var SCORING = {
+    capacity: { points: 25, homesFull: 60000, jobsFull: 120000, homesShare: 0.6 },       // households / jobs for full marks
+    balance: { points: 15, low: 1.0, high: 3.0, falloff: 3 },                               // jobs per household band
+    services: { points: 25, coverageShare: 0.4, groups: ['fire_rescue', 'police', 'healthcare', 'education', 'parks'],
+                capacityPerHousehold: 1.0 },                                                // service capacity units per household
+    traffic: { points: 20, frame: 4, bigRoadZoning: 6, laneCapacity: 10, bigRoadLanes: 6, arterialLanes: 4, bigRoadShareZero: 0.3,
+               laneCellsPerHouseholdFull: 0.25 },                                           // lane-cells of road per household
+    cost: { points: 15, fullAt: 10, zeroAt: 50 },                                           // ₡ service upkeep per household
+    warningPenalty: 3
+  };
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function points(layout, items, roads, stats, data, warnings) {
+    var S = SCORING, zoneItems = items.filter(function (it) { return it.kind === 'zone'; });
+    var buildings = items.filter(function (it) { return it.kind === 'building'; });
+    var households = 0, zoneJobs = 0;
+    zoneItems.forEach(function (z) {
+      var cells = z.inst.w * z.inst.h;
+      households += cells * (z.zone.homesPerCell || 0);
+      zoneJobs += cells * (z.zone.jobsPerCell || 0);
+    });
+    var jobs = zoneJobs + (stats.serviceWorkplaces || 0);
+    var m = { households: Math.round(households), jobs: Math.round(jobs) };
+    var parts = {};
+
+    // 1. capacity: homes and jobs up to a target; nothing extra beyond it
+    var C = S.capacity;
+    parts.capacity = C.points * (C.homesShare * clamp01(households / C.homesFull) + (1 - C.homesShare) * clamp01(jobs / C.jobsFull));
+
+    // 2. balance: jobs per household inside a healthy band
+    var B = S.balance, r = households ? jobs / households : 0;
+    m.jobsPerHousehold = Math.round(r * 100) / 100;
+    var off = r <= 0 ? Infinity : r < B.low ? Math.log(B.low / r) : r > B.high ? Math.log(r / B.high) : 0;
+    parts.balance = B.points * clamp01(1 - off / Math.log(B.falloff));
+
+    // 3. services: coverage of the six core services, and capacity against the households they serve
+    var Sv = S.services;
+    var cov = CORE_SERVICES.reduce(function (s, g) { return s + (stats.coverage[g] || 0); }, 0) / CORE_SERVICES.length / 100;
+    var capScores = Sv.groups.map(function (g) {
+      var supply = buildings.filter(function (b) { return b.asset.group === g; })
+        .reduce(function (s, b) { return s + ((b.asset.stats && b.asset.stats.serviceCapacity) || 0); }, 0);
+      return households ? clamp01(supply / (households * Sv.capacityPerHousehold)) : 0;
+    });
+    m.serviceCapacity = {};
+    Sv.groups.forEach(function (g, i) { m.serviceCapacity[g] = Math.round(capScores[i] * 100); });
+    var capAvg = capScores.reduce(function (a, b) { return a + b; }, 0) / capScores.length;
+    parts.services = Sv.points * (Sv.coverageShare * cov + (1 - Sv.coverageShare) * capAvg);
+
+    // 4. traffic: an arterial frame, little zoning straight onto big roads, local roads that reach arterials
+    var T = S.traffic, B2 = layout.bounds;
+    var isArterial = function (rt) { return (rt.lanes || 0) >= T.arterialLanes && rt.category !== 'track'; };
+    var frame = { ew: false, ns: false };
+    if (B2) {
+      var byRef = {};
+      roads.forEach(function (r) { (byRef[r.ref] = byRef[r.ref] || []).push(r); });
+      Object.keys(byRef).forEach(function (ref) {
+        var segs = byRef[ref];
+        if (!isArterial(segs[0].type)) return;
+        var pts = [].concat.apply([], segs.map(function (s) { return [s.a, s.b]; }));
+        var has = function (f) { return pts.some(f); };
+        if (has(function (p) { return Math.abs(p[0]) < 0.01; }) && has(function (p) { return Math.abs(p[0] - B2.w) < 0.01; })) frame.ew = true;
+        if (has(function (p) { return Math.abs(p[1]) < 0.01; }) && has(function (p) { return Math.abs(p[1] - B2.h) < 0.01; })) frame.ns = true;
+      });
+    }
+    m.arterialFrame = (frame.ew ? 'east-west ' : '') + (frame.ns ? 'north-south' : '') || 'none';
+    var frameScore = (frame.ew ? 0.5 : 0) + (frame.ns ? 0.5 : 0);
+    // roads that are arterials, or touch one
+    var lim = function (a, b) { return Math.max(a.type.widthCells, b.type.widthCells) / 2 + 0.25; };
+    var arterialSegs = roads.filter(function (r) { return isArterial(r.type); });
+    var reachesArterial = function (r) {
+      return isArterial(r.type) || arterialSegs.some(function (a) { return segDist(r, a) <= lim(r, a); });
+    };
+    var cellsTotal = 0, cellsBig = 0, cellsReach = 0;
+    zoneItems.forEach(function (z) {
+      var cells = z.inst.w * z.inst.h, f = z.feeding || [];
+      cellsTotal += cells;
+      if (f.length && f.every(function (r) { return (r.type.lanes || 0) >= T.bigRoadLanes; })) cellsBig += cells;
+      if (f.some(reachesArterial)) cellsReach += cells;
+    });
+    var bigShare = cellsTotal ? cellsBig / cellsTotal : 0, reachShare = cellsTotal ? cellsReach / cellsTotal : 0;
+    m.zonedOnBigRoadsPct = Math.round(bigShare * 100);
+    m.zonedNearArterialPct = Math.round(reachShare * 100);
+    // road capacity: lane length (cells x lanes) of car roads per household
+    var laneCells = roads.reduce(function (s, r) {
+      if (r.type.category === 'track' || !r.type.lanes) return s;
+      return s + Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]) * r.type.lanes;
+    }, 0);
+    var lanesPerHH = households ? laneCells / households : 0;
+    m.laneCellsPerHousehold = Math.round(lanesPerHH * 1000) / 1000;
+    parts.traffic = T.frame * frameScore + T.bigRoadZoning * clamp01(1 - bigShare / T.bigRoadShareZero) +
+      T.laneCapacity * clamp01(lanesPerHH / T.laneCellsPerHouseholdFull);
+
+    // 5. cost: service upkeep per household
+    var Co = S.cost, perHH = households ? stats.upkeepPerMonth / households : Infinity;
+    m.upkeepPerHousehold = isFinite(perHH) ? Math.round(perHH * 10) / 10 : null;
+    parts.cost = Co.points * clamp01((Co.zeroAt - perHH) / (Co.zeroAt - Co.fullAt));
+
+    var raw = Object.keys(parts).reduce(function (s, k) { return s + parts[k]; }, 0);
+    var penalty = S.warningPenalty * warnings.length;
+    Object.keys(parts).forEach(function (k) { parts[k] = Math.round(parts[k] * 10) / 10; });
+    return { total: Math.max(0, Math.round((raw - penalty) * 10) / 10), parts: parts, warningPenalty: penalty, metrics: m };
+  }
+
   // compare(resultA, resultB) -> { winner: 'A' | 'B' | 'tie', decidedBy, a, b }
+  // v3.3: a battle is decided by 1. fewer errors, 2. more points (out of 100). Only if both are equal do the old scorecard
+  // rows (warnings, zoned share, coverage, upkeep per zoned cell) break the tie.
   function compare(ra, rb) {
     var a = ra.stats ? ra.stats.score : ra, b = rb.stats ? rb.stats.score : rb;
-    for (var i = 0; i < TIE_BREAK.length; i++) {
+    var pa = ra.stats && ra.stats.points, pb = rb.stats && rb.stats.points;
+    if (a.errors !== b.errors) return { winner: a.errors < b.errors ? 'A' : 'B', decidedBy: 'errors', step: 1, a: a, b: b };
+    if (pa && pb && pa.total !== pb.total) return { winner: pa.total > pb.total ? 'A' : 'B', decidedBy: 'points', step: 2, a: a, b: b };
+    for (var i = 1; i < TIE_BREAK.length; i++) {
       var t = TIE_BREAK[i], x = a[t.key], y = b[t.key];
       if (x === y || x == null || y == null) continue;
       var aWins = t.better === 'lower' ? x < y : x > y;
@@ -519,7 +630,7 @@
       h.push('</ul>');
     }
     list(result.errors, '#c92a2a'); list(result.warnings, '#e8590c'); list(result.info, '#495057');
-    h.push('<div style="margin-top:6px"><b>Buildings:</b> ' + s.buildings + ' (' + s.uniqueBuildings + ' unique) · <b>Signature households:</b> ' + s.households +
+    h.push('<div style="margin-top:6px"><b>Buildings:</b> ' + s.buildings + ' (' + s.uniqueBuildings + ' unique) · <b>Households (est.):</b> ' + (s.points ? s.points.metrics.households.toLocaleString() : '?') +
       ' · <b>Service jobs:</b> ' + s.serviceWorkplaces + ' · <b>Upkeep:</b> ₡' + s.upkeepPerMonth.toLocaleString() + '/month</div>');
     var zc = Object.keys(s.zoneCells);
     if (zc.length) h.push('<div><b>Zoned cells:</b> ' + zc.map(function (k) { return k + ' ' + s.zoneCells[k]; }).join(' · ') + '</div>');
@@ -527,17 +638,29 @@
       (s.catalogRead.confirmed.length ? ' (' + s.catalogRead.confirmed.map(function (f) { return esc(f.replace('catalog/', '')); }).join(', ') + ')' : '') + '</div>');
     var cv = Object.keys(s.coverage);
     if (cv.length) h.push('<div><b>Service coverage of zoned cells</b> (straight-line, optimistic): ' + cv.map(function (k) { return k + ' ' + s.coverage[k] + '%'; }).join(' · ') + '</div>');
-    var sc = s.score;
-    if (sc) {
-      var cell = 'padding:2px 10px;border-top:1px solid #dee2e6';
+    var sc = s.score, pt = s.points;
+    if (pt) {
+      var cell = 'padding:2px 10px;border-top:1px solid #dee2e6', m = pt.metrics, C = SCORING;
+      var rows = [
+        ['Capacity', pt.parts.capacity, C.capacity.points, m.households.toLocaleString() + ' households · ' + m.jobs.toLocaleString() + ' jobs (full at ' +
+          C.capacity.homesFull.toLocaleString() + ' / ' + C.capacity.jobsFull.toLocaleString() + ')'],
+        ['Balance', pt.parts.balance, C.balance.points, m.jobsPerHousehold + ' jobs per household (best ' + C.balance.low + '–' + C.balance.high + ')'],
+        ['Services', pt.parts.services, C.services.points, 'core coverage ' + (sc ? sc.coreCoveragePct : '?') + '% · capacity vs households: ' +
+          Object.keys(m.serviceCapacity).map(function (g) { return g.replace('_', ' ') + ' ' + m.serviceCapacity[g] + '%'; }).join(', ')],
+        ['Traffic', pt.parts.traffic, C.traffic.points, 'arterial frame: ' + m.arterialFrame + ' · zoning on 6+ lane roads ' + m.zonedOnBigRoadsPct +
+          '% · road lanes per household ' + m.laneCellsPerHousehold + ' (full at ' + C.traffic.laneCellsPerHouseholdFull + ')'],
+        ['Cost', pt.parts.cost, C.cost.points, (m.upkeepPerHousehold == null ? 'n/a' : '₡' + m.upkeepPerHousehold) + ' service upkeep per household (full ≤ ₡' +
+          C.cost.fullAt + ', zero ≥ ₡' + C.cost.zeroAt + ')']
+      ];
+      if (pt.warningPenalty) rows.push(['Warnings', -pt.warningPenalty, null, result.warnings.length + ' × −' + C.warningPenalty]);
       h.push('<table style="border-collapse:collapse;margin-top:8px;font-size:13px"><caption style="text-align:left;font-weight:600;padding-bottom:2px">' +
-        'Scorecard (tie-break order, first difference decides)</caption>' +
-        [['1. Errors', sc.errors, 'fewer'], ['2. Warnings', sc.warnings, 'fewer'],
-         ['3. Zoned share of tile', sc.zonedSharePct == null ? 'n/a (no bounds)' : sc.zonedSharePct + '%', 'higher'],
-         ['4. Core service coverage', sc.coreCoveragePct + '%', 'higher'],
-         ['5. Upkeep per zoned cell', sc.upkeepPerZonedCell == null ? 'n/a' : '₡' + sc.upkeepPerZonedCell, 'lower']
-        ].map(function (r) { return '<tr><td style="' + cell + '">' + r[0] + '</td><td style="' + cell + ';font-weight:600">' + r[1] + '</td><td style="' + cell + ';color:#868e96">' + r[2] + ' is better</td></tr>'; }).join('') +
-        '</table>');
+        'Points: ' + pt.total + ' / 100' + (result.errors.length ? ' (has errors: loses to any layout with fewer errors)' : '') + '</caption>' +
+        rows.map(function (r) {
+          return '<tr><td style="' + cell + '">' + r[0] + '</td><td style="' + cell + ';font-weight:600;text-align:right">' + r[1] +
+            (r[2] ? ' / ' + r[2] : '') + '</td><td style="' + cell + ';color:#868e96">' + esc(r[3]) + '</td></tr>';
+        }).join('') + '</table>');
+      h.push('<div style="color:#868e96;font-size:12px;margin-top:4px">Battles: fewer errors wins; then more points. Tie-break: ' +
+        'warnings, zoned share ' + (sc && sc.zonedSharePct != null ? sc.zonedSharePct + '%' : 'n/a') + ', coverage, upkeep per zoned cell.</div>');
     }
     h.push('<div style="color:#868e96;font-size:12px;margin-top:6px">Checked by cs2 validator ' + VERSION + ' · data extracted from the Cities: Skylines II game files</div></div>');
     return h.join('');
@@ -559,5 +682,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: VERSION, load: load, validate: validate, compare: compare, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: VERSION, SCORING: SCORING, load: load, validate: validate, compare: compare, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });

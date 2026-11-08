@@ -23,7 +23,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>
@@ -50,14 +50,20 @@ It also reports zoned cells per type, upkeep, service jobs and straight-line ser
 
 ## Ranking two layouts
 
-`result.stats.score` holds a scorecard, and `CS2.compare(resultA, resultB)` returns the winner and the step that
-decided it. The order is fixed; the first difference decides:
+Fewer errors wins. Between layouts with equal errors, more points out of 100 wins (`result.stats.points`;
+`CS2.compare(resultA, resultB)` returns the winner and what decided it). Thresholds are in `CS2.SCORING`.
 
-1. fewer errors
-2. fewer warnings
-3. higher zoned share of the tile (whole %, needs `bounds`)
-4. higher average coverage of the six core services: fire, police, health, education, parks, telecom (whole %)
-5. lower upkeep per zoned cell (whole ₡)
+| Category | Points | Measured by |
+|---|---|---|
+| Capacity | 25 | Households and jobs from each zone type's game factors (`homesPerCell`, `jobsPerCell` in the data), full marks at 60,000 / 120,000 |
+| Balance | 15 | Jobs per household, full marks between 1.0 and 3.0 |
+| Services | 25 | Coverage of six core services (40%) and service capacity per household for fire, police, health, education, parks (60%) |
+| Traffic | 20 | Arterials crossing the tile both ways (4), little zoning on 6+ lane roads (6), road lane length per household (10) |
+| Cost | 15 | Service upkeep per household, full marks at ₡10 or less, zero at ₡50 |
+| Warnings | −3 each | |
+
+Exact ties fall back to warnings, zoned share, coverage and upkeep per zoned cell. The thresholds were calibrated on the
+40 battle layouts in `tools/calibration/layouts` (`node tools/calibrate.js --battles`).
 
 ## Where the data comes from
 

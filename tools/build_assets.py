@@ -162,6 +162,11 @@ def build_zones(prefabs, names):
         ZONE_ALIAS[internal] = zid
         z = zones.setdefault(zid, {"id": zid, "name": display, "family": family, "themes": [], "dlc": dlc_of(p),
                                    "waterfront": "Waterfront" in internal, "lot": None})
+        zp = comp(p, "ZoneProperties")
+        if zp and "_zp" not in z:
+            # game factors: households per lot cell (scaled zones) or per building (low density), job space per cell
+            z["_zp"] = {"res": float(zp.get("m_ResidentialProperties") or 0), "scale": bool(zp.get("m_ScaleResidentials")),
+                        "space": float(zp.get("m_SpaceMultiplier") or 0)}
         theme = internal.split(" ")[0] if internal.startswith(("EU ", "NA ")) else None
         if theme and theme not in z["themes"]:
             z["themes"].append(theme)
@@ -182,6 +187,16 @@ def build_zones(prefabs, names):
         if zid not in ZONE_DENSITY:
             raise SystemExit(f"zone {zid} has no density in ZONE_DENSITY")
         z["density"] = ZONE_DENSITY[zid]
+        # Capacity per zoned cell, from the zone's ZoneProperties (v3.3 scoring). Households: scaled zones hold
+        # m_ResidentialProperties per lot cell; unscaled (low density) zones hold that many per building, spread over
+        # the median lot area of their growables. Jobs: m_SpaceMultiplier per cell for commercial and office zones.
+        zp = z.pop("_zp", {"res": 0, "scale": False, "space": 0})
+        areas = sorted(w * d for w, d in lots.get(zid, [])) or [12]
+        median_area = areas[len(areas) // 2]
+        homes = zp["res"] if zp["scale"] else zp["res"] / median_area
+        jobs = zp["space"] if z["family"] in ("commercial", "office") else 0.0
+        z["homesPerCell"] = round(homes, 3)
+        z["jobsPerCell"] = round(jobs, 3)
     return sorted(zones.values(), key=lambda z: (z["family"], z["id"]))
 
 
@@ -482,7 +497,7 @@ PACK_OF_CATEGORY = {
 }
 PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
-RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.2.0/"
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/"
 LEGEND = [
     "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
     "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",

@@ -215,9 +215,36 @@ test('compare follows the published tie-break order', () => {
   assert.strictEqual(CS2.compare(v({}), v({})).winner, 'tie');
 });
 
-test('report shows the scorecard', () => {
+test('report shows the points breakdown', () => {
   const html = CS2.reportHTML(CS2.validate(sample, { data }));
-  assert(html.includes('Scorecard') && html.includes('Zoned share of tile') && html.includes('game files'));
+  assert(html.includes('Points:') && html.includes('Capacity') && html.includes('Traffic') && html.includes('game files'));
+});
+
+test('points: parts add up, stay within their maximum, and warnings cost points', () => {
+  const r = CS2.validate(sample, { data }), p = r.stats.points, S = CS2.SCORING;
+  ['capacity', 'balance', 'services', 'traffic', 'cost'].forEach((k) => assert(p.parts[k] >= 0 && p.parts[k] <= S[k].points, k));
+  const sum = Object.values(p.parts).reduce((a, b) => a + b, 0) - p.warningPenalty;
+  assert(Math.abs(sum - p.total) < 0.6, sum + ' vs ' + p.total);
+  assert.strictEqual(p.warningPenalty, S.warningPenalty * r.warnings.length);
+});
+
+test('points: zoning more does not win on its own', () => {
+  // turning the sample's office zone into housing adds homes but removes jobs: balance and capacity must not both rise
+  const l = clone(sample); l.zones.find((z) => z.type === 'office_high').type = 'residential_high';
+  const a = CS2.validate(sample, { data }).stats.points, b = CS2.validate(l, { data }).stats.points;
+  assert(b.metrics.jobsPerHousehold < a.metrics.jobsPerHousehold);
+  assert(b.parts.balance <= a.parts.balance);
+  // capacity saturates: a layout far above the targets scores the same capacity as one exactly at them
+  const S = CS2.SCORING.capacity;
+  assert(S.homesFull > 0 && S.jobsFull > 0);
+});
+
+test('compare: errors first, then points', () => {
+  const mk = (e, pts) => ({ stats: { score: { errors: e, warnings: 0, zonedSharePct: 10, coreCoveragePct: 50, upkeepPerZonedCell: 10 },
+    points: { total: pts } } });
+  assert.deepStrictEqual([CS2.compare(mk(1, 99), mk(0, 10)).winner, CS2.compare(mk(1, 99), mk(0, 10)).decidedBy], ['B', 'errors']);
+  assert.deepStrictEqual([CS2.compare(mk(0, 70), mk(0, 80)).winner, CS2.compare(mk(0, 70), mk(0, 80)).decidedBy], ['B', 'points']);
+  assert.strictEqual(CS2.compare(mk(0, 80), mk(0, 80)).winner, 'tie');
 });
 
 test('high-density zoning only along 1-cell roads is an error; medium is fine; a wider road fixes it', () => {

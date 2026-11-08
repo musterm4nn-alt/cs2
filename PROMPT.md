@@ -7,8 +7,8 @@ Paste this into Code Arena (or any model with web access):
 Design a repeatable district tile for an end-game Cities: Skylines II city. Think about traffic, utilities and services. Zoning should include residential, commercial and office, no industry. I have all the DLC.
 
 Before you design anything, fetch and read these:
-- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.2.0/RULES.md
-- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.2.0/CATALOG.md, then the catalog files it lists that you need
+- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/RULES.md
+- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/CATALOG.md, then the catalog files it lists that you need
 
 Requirements:
 - The tile is exactly 200 × 200 cells (1.6 × 1.6 km). Set "bounds": {"w": 200, "h": 200} and "repeatable": true. Everything must fit inside.
@@ -18,7 +18,7 @@ Requirements:
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as a single standalone index.html page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.2.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -32,8 +32,7 @@ Also explain on the page, briefly:
 
 - The validator report at the bottom of each page gives an objective score: errors, warnings, zoned cells per type,
   upkeep and rough service coverage. With the fixed 200 × 200 tile these numbers are directly comparable.
-- When both layouts are valid, the scorecard at the bottom of the report decides: compare the five rows in order;
-  the first difference wins.
+- The validator report shows the points breakdown. Fewer errors wins; between equal errors, more points wins.
 - Check the tile edges yourself: roads leaving one edge should line up with the opposite edge.
 - To re-check any model's layout yourself, copy its layout JSON into `examples/index.html` and press Check.
 - Models that can't browse will fail to read the catalog; their validator report will be full of "Unknown asset" errors.
@@ -42,9 +41,14 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
-- **v3.2.0 (frozen, record version):** as v3.1.0, but small pedestrian streets no longer limit density. They are
+- **v3.3.0 (frozen, record version):** new scoring. Battles are decided by fewer errors, then more points out of 100:
+  capacity 25 (households/jobs from the game's zone factors, capped), balance 15 (jobs per household), services 25
+  (coverage + capacity per household), traffic 20 (arterial frame, zoning on big roads, road lanes per household),
+  cost 15 (upkeep per household), −3 per warning. Zoning more no longer wins on its own. Rules and data unchanged
+  apart from per-zone homes/jobs factors. Results from v3.2.0 stay in their own record section.
+- **v3.2.0:** as v3.1.0, but small pedestrian streets no longer limit density. They are
   1 cell wide but carry no car traffic, so high-density zoning may face them; alleys, gravel roads and the one-lane
-  port gate road still allow only low or medium density. The results record starts with this version.
+  port gate road still allow only low or medium density. Record section for rounds 5–6.
 - **v3.1.0:** high-density zones must be fed by a road wider than 1 cell; along alleys,
   gravel roads and small pedestrian streets only low or medium density is allowed. Closes the alley-grid strategy
   (a round-4 run reached 83% zoned with high density on 8 m alleys). Zones now carry a density in the catalog.
