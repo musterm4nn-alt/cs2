@@ -18,7 +18,7 @@ Requirements:
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as a single standalone index.html page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -40,6 +40,10 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
+- **v2.4.0:** a battle transcript showed Code Arena's `web_fetch` silently cuts every page at 8,000 characters. The
+  catalog is now about 20 files of under 7,000 characters each (RULES.md and CATALOG.md fit too), so every file can be
+  read in one fetch. New rule: a layout must contain residential, commercial and office zoning; a roads-only or
+  zone-less layout is an error (round 3's 03-01-B passed with no zones at all).
 - **v2.3.0:** catalog split into 9 small files (each under 14 KB) with END OF FILE markers; the prompt asks
   models to report the markers, and the validator shows how many catalog files each model read completely.
   No change to data or scoring rules.

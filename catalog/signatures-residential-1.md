@@ -1,4 +1,4 @@
-# CS2 catalog: signatures residential
+# CS2 catalog: signatures residential (part 1 of 2)
 
 Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.
 U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,
@@ -65,13 +65,5 @@ ember_suites | Ember Suites | 4×8 | U |  | road |  |  | zone residential_mixed;
 emerald_towers | Emerald Towers | 14×8 | U | Skyscrapers | road |  |  | zone residential_mixed; homes 400; attract 70
 epicurean_garden | Epicurean Garden | 5×5 | U |  | road |  |  | zone residential_mixed; homes 8; attract 5; wellbeing +4 within 750 m
 figura_building | Figura Building | 5×10 | U |  | road |  |  | zone residential_mixed; homes 100; attract 10; wellbeing +8 within 1250 m
-hurston_yards | Hurston Yards | 26×16 | U | Skyscrapers | road |  |  | zone residential_mixed; homes 2100; attract 120
-ironpress_building | Ironpress Building | 4×4 | U |  | road |  |  | zone residential_mixed; homes 8; attract 5; wellbeing +4 within 750 m
-ludo_square | Ludo Square | 4×8 | U |  | road |  |  | zone residential_mixed; homes 16; attract 15; wellbeing +10 within 2000 m
-hurston_tower_c | Hurston Tower C | 10×10 | U | Skyscrapers | near_parent | hurston_yards (≤200 m) |  | 
 
-- upgrades of `emerald_towers` (no separate placement): `elementary_school_pack10_msignature03_ext01`
-- upgrades of `docklands_tower` (no separate placement): `fire_station_headquarters`
-- upgrades of `hurston_yards` (no separate placement): `observation_deck`
-
-END OF FILE catalog/signatures-residential.md | 57 entries | check 38b68f
+END OF FILE catalog/signatures-residential-1.md | 49 entries | check 0c7b55

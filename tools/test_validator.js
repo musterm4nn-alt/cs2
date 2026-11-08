@@ -150,23 +150,39 @@ test('track running along a road is an error, crossing is fine', () => {
 
 test('catalog markers: exact lines confirm files, altered ones warn', () => {
   const l = clone(sample);
-  const zr = data.meta.catalog.find((c) => c.file === 'catalog/zones-roads.md');
-  const sv = data.meta.catalog.find((c) => c.file === 'catalog/services.md');
+  const zr = data.meta.catalog.find((c) => c.file === 'catalog/zones-roads-1.md');
+  const sv = data.meta.catalog.find((c) => c.file === 'catalog/services-1.md');
   l.catalogMarkers = [zr.marker, sv.marker, sv.marker.replace(/check \w+/, 'check 000000')];
   const r = CS2.validate(l, { data });
-  assert.deepStrictEqual(r.stats.catalogRead.confirmed, ['catalog/zones-roads.md', 'catalog/services.md']);
+  assert.deepStrictEqual(r.stats.catalogRead.confirmed, ['catalog/zones-roads-1.md', 'catalog/services-1.md']);
+  assert(r.warnings.some((w) => /zones-roads-2/.test(w.message)));
   assert(r.warnings.some((w) => /altered catalog marker/.test(w.message)));
   assert(CS2.reportHTML(r).includes('2 of ' + data.meta.catalog.length));
   delete l.catalogMarkers;
   assert(CS2.validate(l, { data }).info.some((i) => /No "catalogMarkers"/.test(i.message)));
 });
 
-test('every catalog file is small and ends with its marker', () => {
+test('every catalog file is under 7,000 characters and ends with its marker', () => {
   data.meta.catalog.forEach((c) => {
     const text = fs.readFileSync(path.join(__dirname, '..', c.file), 'utf8');
-    assert(Buffer.byteLength(text) < 18500, c.file + ' is ' + Buffer.byteLength(text) + ' bytes');
+    assert(text.length <= 7000, c.file + ' is ' + text.length + ' characters');
     assert.strictEqual(text.trim().split('\n').pop(), c.marker);
   });
+});
+
+test('every file the prompt sends models to fits in one 8,000-character fetch', () => {
+  ['RULES.md', 'CATALOG.md'].forEach((f) => {
+    const n = fs.readFileSync(path.join(__dirname, '..', f), 'utf8').length;
+    assert(n <= 7500, f + ' is ' + n + ' characters');
+  });
+});
+
+test('layout without zones, or missing a required zone family, is an error', () => {
+  const l = clone(sample); l.zones = [];
+  assert(msgs(CS2.validate(l, { data })).some((m) => /no zone blocks/.test(m)));
+  const k = clone(sample); k.zones = k.zones.filter((z) => z.type !== 'office_high');
+  assert(msgs(CS2.validate(k, { data })).some((m) => /No office zoning/.test(m)));
+  assert.deepStrictEqual(msgs(CS2.validate(k, { data, requireZoneFamilies: ['residential', 'commercial'] })), []);
 });
 
 test('coverage never exceeds 100% with fractional zone sizes', () => {

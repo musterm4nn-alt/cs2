@@ -1,9 +1,10 @@
 # CS2 asset catalog (index)
 
-The catalog is split into small files so web tools don't cut it off. Read `catalog/zones-roads.md` first, then the
-files for the kinds of buildings you need. Every file ends with a line starting `END OF FILE`. If a file you
-fetched does not end with that line, it was cut off: fetch it again or in parts. Copy the END OF FILE line of every
-file you read completely into your layout's `"catalogMarkers"` list; the validator reports which files you read.
+The catalog is split into files of under 7,000 characters, because web tools may cut longer pages off without
+warning (Code Arena's web_fetch stops at 8,000 characters). Read the `zones-roads` files first, then the files for
+the kinds of buildings you need. Every file ends with a line starting `END OF FILE`; if a file you fetched does not
+end with that line, it was cut off. Copy the END OF FILE line of every file you read completely into your layout's
+`"catalogMarkers"` list; the validator reports which files you read.
 
 Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.
 U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,
@@ -12,12 +13,23 @@ Upgrades with no footprint are listed under their parent at the end of each sect
 
 file | contents | entries | size
 ---|---|---|---
-[catalog/zones-roads.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/zones-roads.md) | zone types, roads, highways, tracks (read this first) | 120 | 11.9 KB
-[catalog/services.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/services.md) | Administration, CommunicationsPost, CommunicationsTelecom, Deathcare, DisasterControl, Fire & Rescue, Healthcare, Police, Research | 112 | 12.4 KB
-[catalog/education-culture.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/education-culture.md) | Education, SignaturesLandmarks, TouristAttractions | 88 | 10.5 KB
-[catalog/parks-parking.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/parks-parking.md) | LargeParks, LargeSportsParks, Parks & Recreation, Pathways, RoadsParking, RoadsServices, SportsParks | 125 | 13.4 KB
-[catalog/utilities.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/utilities.md) | Electricity, GarbageManagement, Water & Sewage | 60 | 6.9 KB
-[catalog/transport-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-1.md) | TransportationAir, TransportationRoad, TransportationSubway, TransportationTram | 84 | 8.6 KB
-[catalog/transport-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-2.md) | TransportationFerry, TransportationShip, TransportationTrain | 89 | 9.4 KB
-[catalog/signatures-residential.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-residential.md) | SignaturesResidential, SignaturesResidentialMixed | 57 | 7.4 KB
-[catalog/signatures-business.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-business.md) | SignaturesCommercial, SignaturesIndustrial, SignaturesOffice | 117 | 13.4 KB
+[catalog/zones-roads-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/zones-roads-1.md) | Zones, Roads: small, Roads: medium | 63 | 6.5 KB
+[catalog/zones-roads-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/zones-roads-2.md) | Roads: large, Roads: highway, Roads: transit lane, Roads: port, Roads: track | 57 | 6.5 KB
+[catalog/services-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/services-1.md) | Administration, CommunicationsPost, CommunicationsTelecom, Deathcare, DisasterControl, Fire & Rescue | 49 | 6.6 KB
+[catalog/services-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/services-2.md) | Fire & Rescue, Healthcare, Police, Research | 48 | 6.4 KB
+[catalog/education-culture-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/education-culture-1.md) | Education | 49 | 6.7 KB
+[catalog/education-culture-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/education-culture-2.md) | Education, SignaturesLandmarks, TouristAttractions | 31 | 4.5 KB
+[catalog/parks-parking-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/parks-parking-1.md) | LargeParks, LargeSportsParks, Parks & Recreation | 58 | 6.7 KB
+[catalog/parks-parking-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/parks-parking-2.md) | Parks & Recreation, Pathways, RoadsParking | 60 | 6.6 KB
+[catalog/parks-parking-3.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/parks-parking-3.md) | RoadsServices, SportsParks | 6 | 1.2 KB
+[catalog/utilities-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/utilities-1.md) | Electricity, GarbageManagement, Water & Sewage | 47 | 6.7 KB
+[catalog/utilities-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/utilities-2.md) | Water & Sewage | 3 | 0.9 KB
+[catalog/transport-road-air-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-road-air-1.md) | TransportationAir, TransportationRoad, TransportationSubway | 53 | 6.6 KB
+[catalog/transport-road-air-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-road-air-2.md) | TransportationSubway, TransportationTram | 19 | 2.7 KB
+[catalog/transport-rail-water-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-rail-water-1.md) | TransportationFerry, TransportationShip, TransportationTrain | 49 | 6.7 KB
+[catalog/transport-rail-water-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/transport-rail-water-2.md) | TransportationTrain | 21 | 3.4 KB
+[catalog/signatures-residential-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-residential-1.md) | SignaturesResidential, SignaturesResidentialMixed | 49 | 6.6 KB
+[catalog/signatures-residential-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-residential-2.md) | SignaturesResidentialMixed | 7 | 1.4 KB
+[catalog/signatures-business-1.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-business-1.md) | SignaturesCommercial, SignaturesIndustrial | 52 | 6.6 KB
+[catalog/signatures-business-2.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-business-2.md) | SignaturesIndustrial, SignaturesOffice | 56 | 6.7 KB
+[catalog/signatures-business-3.md](https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/catalog/signatures-business-3.md) | SignaturesOffice | 7 | 1.3 KB

@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -17,7 +17,7 @@
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching
@@ -335,6 +335,13 @@
       }
     });
 
+    // the task asks for residential, commercial and office zoning; an empty or partial layout must not pass
+    var required = opts.requireZoneFamilies || ['residential', 'commercial', 'office'];
+    var famCells = {};
+    items.forEach(function (it) { if (it.kind === 'zone') famCells[it.zone.family] = (famCells[it.zone.family] || 0) + it.inst.w * it.inst.h; });
+    if (!items.some(function (it) { return it.kind === 'zone'; })) err('zones', 'The layout has no zone blocks. Zoning is required.');
+    else required.forEach(function (f) { if (!famCells[f]) err('zones', 'No ' + f + ' zoning in the layout; it must include ' + required.join(', ') + '.'); });
+
     // ---------- stats ----------
     var stats = { zoneCells: {}, buildings: 0, uniqueBuildings: 0, households: 0, serviceWorkplaces: 0, upkeepPerMonth: 0, coverage: {} };
     items.forEach(function (it) {
@@ -391,7 +398,10 @@
       });
       stats.catalogRead = { confirmed: confirmed, total: catalog.length };
       if (!given.length) info.push({ ref: 'catalog', message: 'No "catalogMarkers" given, so it is unknown which catalog files were read completely.' });
-      else if (confirmed.indexOf('catalog/zones-roads.md') < 0) warn('catalog', 'catalog/zones-roads.md (zones and roads) is not confirmed as read completely.');
+      else {
+        var zr = catalog.filter(function (c) { return /^catalog\/zones-roads/.test(c.file) && confirmed.indexOf(c.file) < 0; });
+        if (zr.length) warn('catalog', 'Zones/roads catalog file(s) not confirmed as read completely: ' + zr.map(function (c) { return c.file; }).join(', ') + '.');
+      }
     }
 
     return { ok: errors.length === 0, errors: errors, warnings: warnings, info: info, stats: stats, _items: items, _roads: roads };
@@ -485,5 +495,5 @@
 
   function asset(id) { return cache && cache._byId[id]; }
 
-  return { version: '2.3.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
+  return { version: '2.4.0', load: load, validate: validate, renderSVG: renderSVG, reportHTML: reportHTML, mount: mount, asset: asset, footprint: footprint, _index: index };
 });

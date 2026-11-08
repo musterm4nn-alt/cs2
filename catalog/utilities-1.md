@@ -1,4 +1,4 @@
-# CS2 catalog: utilities
+# CS2 catalog: utilities (part 1 of 2)
 
 Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.
 U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,
@@ -70,8 +70,5 @@ wastewater_treatment_plant_advanced_filtering_system | Wastewater Treatment Plan
 wastewater_treatment_plant_extra_processing_unit | Wastewater Treatment Plant Extra Processing Unit | 12×10 |  |  | near_parent | water_treatment_plant (≤100 m) | 20000 | jobs 20; sewage 100000
 
 - upgrades of `groundwater_pumping_station` (no separate placement): `groundwater_pumping_station_advanced_filtering_system`, `groundwater_pumping_station_extra_pump`
-- upgrades of `sewage_outlet` (no separate placement): `sewage_outlet_chemical_purification`
-- upgrades of `water_pumping_station` (no separate placement): `water_pumping_station_extra_pump`
-- upgrades of `water_tower` (no separate placement): `water_tower_viewing_deck`
 
-END OF FILE catalog/utilities.md | 60 entries | check f88d21
+END OF FILE catalog/utilities-1.md | 47 entries | check 4dd466

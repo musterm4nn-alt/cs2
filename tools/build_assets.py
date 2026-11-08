@@ -445,7 +445,7 @@ KEY_STATS = [("households", "homes"), ("workplaces", "jobs"), ("serviceRangeM", 
              ("attractiveness", "attract"), ("depotVehicles", "vehicles")]
 
 
-CATALOG_MAX_BYTES = 18_000  # keep every file well below typical web-fetch limits
+CATALOG_MAX_CHARS = 7_000  # Code Arena web_fetch cuts content at 8,000 characters (seen in a battle transcript)
 # group -> catalog file; signature categories are mapped individually below
 PACKS = {
     "fire_rescue": "services", "police": "services", "healthcare": "services", "deathcare": "services",
@@ -453,15 +453,15 @@ PACKS = {
     "education": "education-culture", "landmarks": "education-culture", "attractions": "education-culture",
     "parks": "parks-parking", "parking": "parks-parking", "pathways": "parks-parking", "road_services": "parks-parking",
     "electricity": "utilities", "water_sewage": "utilities", "garbage": "utilities",
-    "transport_road": "transport-1", "transport_tram": "transport-1", "transport_subway": "transport-1", "transport_air": "transport-1",
-    "transport_train": "transport-2", "transport_water": "transport-2",
+    "transport_road": "transport-road-air", "transport_tram": "transport-road-air", "transport_subway": "transport-road-air", "transport_air": "transport-road-air",
+    "transport_train": "transport-rail-water", "transport_water": "transport-rail-water",
 }
 PACK_OF_CATEGORY = {
     "SignaturesResidential": "signatures-residential", "SignaturesResidentialMixed": "signatures-residential",
     "SignaturesCommercial": "signatures-business", "SignaturesOffice": "signatures-business",
     "SignaturesIndustrial": "signatures-business",
 }
-PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-1", "transport-2",
+PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
 RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/"
 LEGEND = [
@@ -519,23 +519,64 @@ def write_catalog(out):
         old.unlink()
     files = []
 
-    # zones and roads
-    body = ["## Zones", "", "Lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.", "",
-            "id | name | family | lot sizes | themes | DLC", "---|---|---|---|---|---"]
+    def emit(key, label, sections, intro):
+        """Split sections into files of at most CATALOG_MAX_CHARS characters (title, intro and marker included)."""
+        budget = CATALOG_MAX_CHARS - len(f"# CS2 catalog: {label} (part 99 of 99)\n\n") - len("\n".join(intro)) - 260
+        parts, cur, size, entries, open_sec = [], [], 0, 0, None
+
+        def flush():
+            nonlocal cur, size, entries, open_sec
+            if cur:
+                parts.append((cur, entries))
+            cur, size, entries, open_sec = [], 0, 0, None
+
+        for heading, header, rows, tail in sections:
+            lines = [("row", r) for r in rows] + ([("gap", "")] if tail else []) + [("row", t) for t in tail]
+            started = False
+            for kind, line in lines:
+                for attempt in (0, 1):
+                    head = [] if open_sec == heading else (["", f"## {heading}" + (" (continued)" if started else ""), ""] + header)
+                    add = head + [line]
+                    add_size = len("\n".join(add)) + 1
+                    if cur and size + add_size > budget and attempt == 0:
+                        flush()
+                        continue
+                    break
+                cur += add; size += add_size; open_sec = heading; started = True
+                if kind == "row":
+                    entries += 1
+        flush()
+        recs = []
+        for n, (body, ent) in enumerate(parts, 1):
+            name = key if len(parts) == 1 else f"{key}-{n}"
+            title = f"CS2 catalog: {label}" + (f" (part {n} of {len(parts)})" if len(parts) > 1 else "")
+            rec = finish_file(name, title, intro, body, ent)
+            heads = [l[3:].replace(" (continued)", "") for l in body if l.startswith("## ")]
+            rec["contents"] = ", ".join(dict.fromkeys(heads))
+            recs.append(rec)
+        return recs
+
+    # zones, roads and tracks (read first)
+    zone_rows = []
     for z in out["zones"]:
         lot = z["lot"]
         lot_s = f"{lot['minW']}×{lot['minD']} to {lot['maxW']}×{lot['maxD']}" if lot else "unknown"
-        body.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
-    body += ["", "## Roads and tracks", "", "Width from the game's road sections; roads are drawn along their centre line.", "",
-             "id | name | category | lanes | km/h | width m | width cells | zoning | building access",
-             "---|---|---|---|---|---|---|---|---"]
-    for r in out["roads"]:
-        body.append(f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
-                    f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}")
-    files.append(finish_file("zones-roads", "CS2 zones, roads and tracks", [], body, len(out["zones"]) + len(out["roads"])))
-    files[-1]["contents"] = "zone types, roads, highways, tracks (read this first)"
+        zone_rows.append(f"{z['id']} | {z['name']} | {z['family']} | {lot_s} | {'/'.join(z['themes'])} | {z['dlc'] or ''}")
+    road_rows = [f"{r['id']} | {r['name']} | {r['category']} | {r['lanes'] or ''} | {r['speedKmh'] or ''} | {r['widthM']:g} | "
+                 f"{r['widthCells']:g} | {'yes' if r['allowsZoning'] else 'no'} | {'yes' if r['buildingAccess'] else 'no'}"
+                 for r in out["roads"]]
+    road_header = ["id | name | category | lanes | km/h | width m | width cells | zoning | building access",
+                   "---|---|---|---|---|---|---|---|---"]
+    zr_intro = ["Zone lot = width×depth range of buildings that grow there; zoning reaches at most 6 cells from a road.",
+                "Road width comes from the game's road sections; roads are drawn along their centre line."]
+    road_secs = [("Zones", ["id | name | family | lot sizes | themes | DLC", "---|---|---|---|---|---"], zone_rows, [])]
+    for cat_name in ("small", "medium", "large", "highway", "transit_lane", "port", "track"):
+        rows = [row for row, r in zip(road_rows, out["roads"]) if r["category"] == cat_name]
+        if rows:
+            road_secs.append((f"Roads: {cat_name.replace('_', ' ')}", road_header, rows, []))
+    files += emit("zones-roads", "zones, roads and tracks", road_secs, zr_intro)
 
-    # buildings: one file per group (signatures: one per category), split further if too big
+    # buildings, packed by theme and split to stay under the size limit
     by_cat = defaultdict(list)
     for a in out["assets"]:
         by_cat[a["category"]].append(a)
@@ -544,41 +585,21 @@ def write_catalog(out):
         key = PACK_OF_CATEGORY.get(cat) or PACKS.get(UI_GROUPS.get(cat, ""), "other")
         groups[key].append(cat)
     for key in sorted(groups, key=lambda k: PACK_ORDER.index(k) if k in PACK_ORDER else 99):
-        sections = []  # list of (cat, rows, up_lines, entries)
+        sections = []
         for cat in sorted(groups[key]):
-            sections.append((cat,) + category_blocks(cat, by_cat[cat]))
-        # pack rows into parts under the size limit
-        parts, cur, cur_entries, size = [], [], 0, 0
-        for cat, rows, up_lines, entries in sections:
-            chunk = ["", f"## {cat}", ""] + ASSET_HEADER + rows + ([""] + up_lines if up_lines else [])
-            csize = len("\n".join(chunk).encode("utf-8"))
-            if cur and size + csize > CATALOG_MAX_BYTES:
-                parts.append((cur, cur_entries)); cur, cur_entries, size = [], 0, 0
-            if csize > CATALOG_MAX_BYTES:  # a single huge category: split its rows
-                for i in range(0, len(rows), 60):
-                    sub = ["", f"## {cat} (rows {i + 1}–{min(i + 60, len(rows))})", ""] + ASSET_HEADER + rows[i:i + 60]
-                    if i + 60 >= len(rows) and up_lines:
-                        sub += [""] + up_lines
-                    parts.append((sub, min(60, len(rows) - i) + (len(up_lines) if i + 60 >= len(rows) else 0)))
-                continue
-            cur += chunk; cur_entries += entries; size += csize
-        if cur:
-            parts.append((cur, cur_entries))
-        for n, (body, entries) in enumerate(parts, 1):
-            name = key if len(parts) == 1 else f"{key}-{n}"
-            title = f"CS2 catalog: {key.replace('-', ' ')}" + (f" (part {n} of {len(parts)})" if len(parts) > 1 else "")
-            files.append(finish_file(name, title, LEGEND, body, entries))
-            cats = [line[3:].split(" (rows")[0] for line in body if line.startswith("## ")]
-            files[-1]["contents"] = ", ".join(dict.fromkeys(cats))
+            rows, up_lines, _ = category_blocks(cat, by_cat[cat])
+            sections.append((cat, ASSET_HEADER, rows, up_lines))
+        files += emit(key, key.replace("-", " "), sections, LEGEND)
 
     # index
     idx = [
         "# CS2 asset catalog (index)",
         "",
-        "The catalog is split into small files so web tools don't cut it off. Read `catalog/zones-roads.md` first, then the",
-        "files for the kinds of buildings you need. Every file ends with a line starting `END OF FILE`. If a file you",
-        "fetched does not end with that line, it was cut off: fetch it again or in parts. Copy the END OF FILE line of every",
-        "file you read completely into your layout's `\"catalogMarkers\"` list; the validator reports which files you read.",
+        "The catalog is split into files of under 7,000 characters, because web tools may cut longer pages off without",
+        "warning (Code Arena's web_fetch stops at 8,000 characters). Read the `zones-roads` files first, then the files for",
+        "the kinds of buildings you need. Every file ends with a line starting `END OF FILE`; if a file you fetched does not",
+        "end with that line, it was cut off. Copy the END OF FILE line of every file you read completely into your layout's",
+        "`\"catalogMarkers\"` list; the validator reports which files you read.",
         "",
     ] + LEGEND + [
         "",

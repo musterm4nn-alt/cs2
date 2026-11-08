@@ -11,7 +11,7 @@ their results can be compared objectively.
 |---|---|
 | [`RULES.md`](RULES.md) | Rules and layout format, written for AI models. |
 | [`CATALOG.md`](CATALOG.md) | Index of the catalog files. |
-| [`catalog/`](catalog) | Compact one-line-per-asset lists in 9 files under 14 KB each, each ending with an END OF FILE marker. |
+| [`catalog/`](catalog) | Compact one-line-per-asset lists in ~20 files of under 7,000 characters each (Code Arena's web_fetch stops at 8,000), each ending with an END OF FILE marker. |
 | [`assets.json`](assets.json) | Full data: 732 buildings, sub-buildings and upgrades (incl. 144 signature buildings), 18 zones, 102 roads/tracks. |
 | [`validator.js`](validator.js) | Validator + SVG renderer. Works in the browser and in Node. |
 | [`PROMPT.md`](PROMPT.md) | Ready-to-paste battle prompt that points models at the files above. |
@@ -22,7 +22,7 @@ their results can be compared objectively.
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.3.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.4.0/validator.js"></script>
 <script>
   CS2.mount({ roads: [...], zones: [...], buildings: [...] }, document.getElementById('app'));
 </script>
@@ -36,6 +36,7 @@ The validator checks:
 - the building's front edge touches a road (highways and tracks don't count)
 - zone blocks touch a zonable road and are at most 6 cells deep
 - sub-buildings sit within the game's maximum distance of a matching parent; upgrades go on a matching parent, once
+- the layout contains residential, commercial and office zoning (configurable with `requireZoneFamilies`)
 - no industrial zoning or industrial signature buildings (default; pass `{ noIndustry: false }` to allow them)
 - the layout stays inside its bounds
 - all normal roads form one connected network (highways and tracks are separate)
