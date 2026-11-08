@@ -7,8 +7,8 @@ Paste this into Code Arena (or any model with web access):
 Design a repeatable district tile for an end-game Cities: Skylines II city. Think about traffic, utilities and services. Zoning should include residential, commercial and office, no industry. I have all the DLC.
 
 Before you design anything, fetch and read these:
-- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/RULES.md
-- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/CATALOG.md, then the catalog files it lists that you need
+- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.0.0/RULES.md
+- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.0.0/CATALOG.md, then the catalog files it lists that you need
 
 Requirements:
 - The tile is exactly 200 × 200 cells (1.6 × 1.6 km). Set "bounds": {"w": 200, "h": 200} and "repeatable": true. Everything must fit inside.
@@ -18,7 +18,7 @@ Requirements:
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as a single standalone index.html page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -42,6 +42,8 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
+- **v3.0.0 (frozen):** same rules, data and scoring as v2.5.0. This is the version the results record uses
+  (RESULTS.md, from round 5). Any later fix ships as v3.1 and starts a new section of the record.
 - **v2.5.0:** the report ends with a scorecard and `CS2.compare(a, b)` applies the fixed tie-break order (errors,
   warnings, zoned share, core service coverage, upkeep per zoned cell). Validation is unchanged.
 - **v2.4.0:** a battle transcript showed Code Arena's `web_fetch` silently cuts every page at 8,000 characters. The

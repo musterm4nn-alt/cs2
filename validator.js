@@ -2,7 +2,7 @@
  * CS2 layout validator + renderer for Cities: Skylines II city layouts.
  * Data: assets.json (derived from the CS2 Wiki, CC BY-NC-SA 3.0). https://github.com/musterm4nn-alt/cs2
  *
- * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/validator.js"></script>
+ * Browser:  <script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/validator.js"></script>
  *           CS2.mount(layout, document.getElementById('app'))   // loads data, validates, draws, reports
  * Node:     const CS2 = require('./validator.js'); CS2.validate(layout, { data })
  */
@@ -11,14 +11,14 @@
   else root.CS2 = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var VERSION = '2.5.0';
+  var VERSION = '3.0.0';
 
   var SCRIPT_BASE = (function () {
     try {
       var s = document.currentScript && document.currentScript.src;
       if (s) return s.replace(/[^/]*$/, '');
     } catch (e) {}
-    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v2.5.0/';
+    return 'https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.0.0/';
   })();
   var EPS = 0.01;      // overlap tolerance in cells (touching edges are fine)
   var REACH = 0.6;     // how far (cells) a building edge may be from a road edge and still count as touching

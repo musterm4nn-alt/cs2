@@ -463,7 +463,7 @@ PACK_OF_CATEGORY = {
 }
 PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
-RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/main/"
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.0.0/"
 LEGEND = [
     "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
     "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
