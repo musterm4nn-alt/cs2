@@ -40,7 +40,7 @@ Sorted by wins, then win rate, then average zoned share of valid layouts.
 ## Battles (Code Arena)
 
 Score columns: errors / warnings / zoned share / core coverage / ₡ per zoned cell. "Read" = catalog files confirmed
-read completely (of 20). "Decided by" = the scorecard row that decided the battle.
+read completely (of 20 in v3.0.0, of 21 in v3.2.0). "Decided by" = the scorecard row that decided the battle.
 
 | Round | Battle | Model A | Score A | Read A | Model B | Score B | Read B | Winner | Decided by |
 |---|---|---|---|---|---|---|---|---|---|
@@ -48,10 +48,17 @@ read completely (of 20). "Decided by" = the scorecard row that decided the battl
 | 5¹ | 05-02 | muse-spark-1.3-xhigh | 0 / 0 / 26% / 100% / ₡42 | 12 | deepseek-v4.1-flash-max | 0 / 0 / 38% / 100% / ₡61 | 12 | **deepseek-v4.1-flash-max** | zoned share |
 | 5¹ | 05-03 | kimi-k3.1-pro-max | 6 / 0 / 57% / 100% / ₡26 | 9 | claude-opus-5.5-low | 0 / 0 / 79% / 83% / ₡13 | 6 | **claude-opus-5.5-low** | errors |
 | 5¹ | 05-04 | deepseek-v4.1-flash-max | 1 / 0 / 24% / 97% / ₡88 | 10 | qwen3.8-max-0902 | no layout | – | **deepseek-v4.1-flash-max** | no output |
+| 6 | 06-01 | *(name pending)* | 0 / 0 / 21% / 83% / ₡25 | 8 | *(name pending)* | 0 / 0 / 73% / 100% / ₡22 | 14 | **B** | zoned share |
+| 6 | 06-02 | *(name pending)* | 0 / 1 / 65% / 100% / ₡37 | 14 | *(name pending)* | 0 / 0 / 65% / 100% / ₡26 | 12 | **B** | warnings² |
+| 6 | 06-03 | *(name pending)* | 0 / 0 / 66% / 100% / ₡6 | 12 | *(name pending)* | 0 / 0 / 29% / 100% / ₡36 | 11 | **A** | zoned share |
+| 6 | 06-04 | *(name pending)* | 1 / 0 / 42% / 83% / ₡63 | 11 | *(name pending)* | 0 / 0 / 75% / 100% / ₡24 | 9 | **B** | errors |
 
 ¹ Round 5 ran on v3.0.0 (the prompt linked v3.0.0). All layouts were re-checked under the v3.2.0 rules: no layout
 breaks the density rule added in v3.1/v3.2, so scorecards and winners are identical. The only difference is that these
 models saw the catalog without the zone density column.
+
+² 06-02-A's only warning is that it didn't read catalog/zones-roads-3.md, which the validator counts on row 2.
+Without that warning the battle is tied on rows 1–4 and B still wins on row 5 (upkeep per zoned cell, ₡26 vs ₡37).
 
 ## Runs outside Arena
 
