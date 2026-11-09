@@ -357,7 +357,7 @@ function simulateCity(city, opts) {
     [[A, B, sd.lanesFwd, pa, pb], [B, A, sd.lanesBack, pb, pa]].forEach(([from, to, lanes, p0, p1]) => {
       if (!lanes) return;
       links.push({ id: links.length, from, to, lanes, lenM: Math.max(1, e.len), vmax: sd.speedKmh / 3.6, seg: ei, ref: String(e.id), type: r.id, highway: sd.highway, tl: sd.trafficLights,
-        p0, p1, store: Math.max(1, e.len * lanes / CONFIG.vehicleSpacingM), capLink: lanes * (sd.highway ? CONFIG.highwayLaneCapacityVps : CONFIG.laneCapacityVps), road: ei, gameFlow: e.flow });
+        p0, p1, store: Math.max(1, e.len * lanes / CONFIG.vehicleSpacingM), capLink: lanes * (sd.highway ? CONFIG.highwayLaneCapacityVps : CONFIG.laneCapacityVps), road: ei, gameFlow: e.flow, curve: from === A ? c : [c[6], c[7], c[4], c[5], c[2], c[3], c[0], c[1]] });
     });
   });
   links.forEach((l) => { nodes[l.from].out.push(l.id); nodes[l.to].inn.push(l.id); });
@@ -756,7 +756,31 @@ function runSim(g, lots, ctx, opts) {
 // ---------------------------------------------------------------- report
 function flowColor(f) { return f >= 0.85 ? '#2e9d4e' : f >= 0.7 ? '#9bc53d' : f >= 0.55 ? '#f2c12e' : f >= 0.4 ? '#f08a24' : '#d7263d'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// map of an exported city: road curves coloured by the simulator's flow, or by the flow the game measured
+function cityMapSVG(o, which) {
+  const d = o._draw;
+  // frame the built-up area (where the homes and jobs are); highways running off to the map border are cut off
+  const lx = d.lots.map((l) => l.x).sort((p, q) => p - q), ly = d.lots.map((l) => l.y).sort((p, q) => p - q);
+  const pct = (arr, f) => arr[Math.floor((arr.length - 1) * f)], pad = 40;
+  const x0 = pct(lx, 0.005) - pad, x1 = pct(lx, 0.995) + pad, y0 = pct(ly, 0.005) - pad, y1 = pct(ly, 0.995) + pad;
+  const S = 720 / Math.max(x1 - x0, y1 - y0), Wp = (x1 - x0) * S + 20, Hp = (y1 - y0) * S + 20;
+  const X = (v) => ((v / CELL - x0) * S + 10).toFixed(1), Y = (v) => ((v / CELL - y0) * S + 10).toFixed(1);
+  const maxVol = Math.max(1, ...d.linkVol);
+  let svg = `<svg viewBox="0 0 ${Wp.toFixed(0)} ${Hp.toFixed(0)}" width="100%" style="max-width:${Wp.toFixed(0)}px;background:var(--map);overflow:hidden">`;
+  const drawn = new Set();
+  d.links.forEach((l) => {
+    if (which === 'game' && drawn.has(l.road)) return;
+    drawn.add(l.road);
+    const f = which === 'game' ? l.gameFlow.reduce((a, b) => a + b, 0) / 4 : d.linkFlow[l.id];
+    const c = l.curve, w = which === 'game' ? (l.highway ? 2.2 : 1.4) : 0.8 + 2.6 * Math.sqrt(d.linkVol[l.id] / maxVol);
+    svg += `<path d="M${X(c[0])} ${Y(c[1])}C${X(c[2])} ${Y(c[3])} ${X(c[4])} ${Y(c[5])} ${X(c[6])} ${Y(c[7])}" fill="none" stroke="${flowColor(f)}" stroke-width="${w.toFixed(1)}" stroke-linecap="round"><title>${esc(l.type)} · ${which === 'game' ? 'game' : 'simulator'} flow ${Math.round(f * 100)}%${which === 'game' ? '' : ' · ' + Math.round(d.linkVol[l.id]) + ' cars/day'}</title></path>`;
+  });
+  if (which !== 'game') d.junctions.slice(0, 10).forEach((j, i) => { svg += `<circle cx="${((j.x - x0) * S + 10).toFixed(1)}" cy="${((j.y - y0) * S + 10).toFixed(1)}" r="${(4 + Math.min(6, j.waitVehH / 40)).toFixed(1)}" fill="none" stroke="#d7263d" stroke-width="1.5"><title>Junction #${i + 1}: ${j.waitVehH.toFixed(1)} vehicle-hours of waiting</title></circle>`; });
+  return svg + '</svg>';
+}
+
 function reportHTML(o) {
+  if (o.compare) return cityReportHTML(o);
   const d = o._draw, lay = d.layout, W = lay.bounds ? lay.bounds.w : 200, H = lay.bounds ? lay.bounds.h : 200;
   const S = Math.min(720 / W, 720 / H);
   const maxVol = Math.max(1, ...d.linkVol);
@@ -834,6 +858,48 @@ ${o.worstJunctions.map((x, i) => row([i + 1, x.x + ', ' + x.y, x.control, x.road
 </main></body></html>`;
 }
 
+function reportShell(body, title) {
+  const css = reportHTML.toString().match(/<style>([\s\S]*?)<\/style>/)[1];
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title><style>${css}.tabs{display:flex;gap:6px;margin:0 0 8px}.tabs button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:4px 12px;cursor:pointer}.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}</style></head><body><main>${body}</main></body></html>`;
+}
+
+// report for a city exported from the game: the simulator next to what the game measured
+function cityReportHTML(o) {
+  const k = o.compare, r = o.result, tr = o.trips, pp = o.population;
+  const row = (cells) => '<tr>' + cells.map((c) => `<td>${c}</td>`).join('') + '</tr>';
+  const names = { highway: 'Highways', two_lane_road: 'Two-lane roads', four_lane_road: 'Four-lane roads', four_lane_divided_road: 'Four-lane divided roads', alley: 'Alleys', gravel_road: 'Gravel roads' };
+  const purpose = Object.entries(tr.byPurpose).sort((a, b) => b[1] - a[1]).map(([x, v]) => `${esc(x)} ${v.toLocaleString('en')}`).join(' · ');
+  return reportShell(`<h1>${esc(o.name)}</h1><div class="muted">A city exported from Cities: Skylines II, simulated with the same model as the layouts and compared with the flow the game measured on the same roads.</div>
+<div class="kpis">
+<div class="kpi"><b>${k.simMeanFlowPct}%</b><span>average road flow, simulator</span></div>
+<div class="kpi"><b>${k.gameMeanFlowPct}%</b><span>average road flow, game</span></div>
+<div class="kpi"><b>${pp.households.toLocaleString('en')}</b><span>households</span></div>
+<div class="kpi"><b>${r.peakOnRoad.toLocaleString('en')}</b><span>cars on the road at peak (simulator)</span></div>
+</div>
+<h2>Road flow</h2>
+<div class="tabs"><button class="on" data-map="sim">Simulator</button><button data-map="game">Game</button></div>
+<div class="wrap map" id="map-sim">${cityMapSVG(o, 'sim')}</div>
+<div class="wrap map" id="map-game" hidden>${cityMapSVG(o, 'game')}</div>
+<div class="legend muted" style="font-size:13px">Flow:<span style="background:#2e9d4e"></span>≥85%<span style="background:#9bc53d"></span>70–85<span style="background:#f2c12e"></span>55–70<span style="background:#f08a24"></span>40–55<span style="background:#d7263d"></span>&lt;40% · simulator: line width = cars per day, red circles = worst junctions</div>
+<h2>Simulator vs game by road type</h2>
+<div class="wrap"><table><thead><tr><th>Road type</th><th>Pieces</th><th>Game</th><th>Simulator</th></tr></thead><tbody>
+${Object.entries(k.byType).sort((a, b) => b[1].n - a[1].n).map(([t, v]) => row([names[t] || esc(t), v.n, v.game + '%', v.sim + '%'])).join('')}
+${row(['<b>All</b>', k.roads, '<b>' + k.gameMeanFlowPct + '%</b>', '<b>' + k.simMeanFlowPct + '%</b>'])}
+</tbody></table></div>
+<p class="muted" style="font-size:14px">Road by road the two agree only loosely (correlation ${k.correlation}, average difference ${k.meanAbsDiffPct} points): the simulator knows how many trips the city makes, but not where each one really goes. Below 50 % flow: ${k.gameBelow50} pieces in the game, ${k.simBelow50} in the simulator, ${k.bothBelow50} in both.</p>
+<h2>Simulated day</h2>
+<table><tbody>
+${row(['Trips on the measured day', tr.total.toLocaleString('en')])}
+${row(['By purpose', purpose])}
+${row(['Car trips completed', r.completedPct + '%'])}
+${row(['Median commute (game time)', r.medianCommuteMin + ' min'])}
+${row(['Vehicle-hours waiting at junctions', r.junctionDelayVehH.toLocaleString('en')])}
+${row(['Network', `${o.network.junctions} junctions (${o.network.signals} with signals), ${o.network.roads} road pieces, ${k.gateways} outside connections`])}
+</tbody></table>
+<script>document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('.map').forEach(function(m){m.hidden=m.id!=='map-'+b.dataset.map})}})</script>`, o.name + ' traffic');
+}
+
 // ---------------------------------------------------------------- CLI
 function main() {
   const a = process.argv.slice(2);
@@ -842,9 +908,14 @@ function main() {
   const run = (file) => { const lay = readLayout(file); const o = simulate(lay, { days, seed, cityKm2 }); o._days = days; return o; };
   if (a.includes('--city')) {
     const city = JSON.parse(fs.readFileSync(opt('--city'), 'utf8'));
-    const o = simulateCity(city, { days, seed, name: path.basename(opt('--city')) });
+    const name = opt('--name', path.basename(opt('--city')).replace(/\.json$/, '').replace(/_city$/, '').replace(/^./, (c) => c.toUpperCase()));
+    const o = simulateCity(city, { days, seed, name });
+    const outFile = opt('--out', path.join(__dirname, 'out', name.toLowerCase().replace(/\W+/g, '-') + '.html'));
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    fs.writeFileSync(outFile, reportHTML(o));
     const clean = Object.assign({}, o); delete clean._draw; delete clean.config;
-    console.log(JSON.stringify(clean, null, 1));
+    if (a.includes('--json')) console.log(JSON.stringify(clean, null, 1));
+    else console.log(`${name}: simulator ${o.compare.simMeanFlowPct}% vs game ${o.compare.gameMeanFlowPct}% average road flow\n  report: ${outFile}`);
     return;
   }
   if (a.includes('--all')) {

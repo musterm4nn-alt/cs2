@@ -10,7 +10,8 @@ node tools/sim/simulate.js --all tools/calibration/layouts             # one lin
 ```
 
 Options: `--days 3` (simulated days, the last one is reported), `--seed 1`, `--city-km2 16`, `--json`,
-`--city <exported city>.json` (run a city exported from the game; see Calibration).
+`--city <exported city>.json` (run a city exported from the game and compare it with the game; writes
+tools/sim/out/<city>.html with simulator and game flow maps; see Calibration).
 
 ## What it does
 
