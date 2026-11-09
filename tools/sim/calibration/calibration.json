@@ -10,7 +10,8 @@
   "trafficFlowPct": 42,
   "carsMovingAvg": 2711,
   "personalCarsMovingAvg": 2182,
-  "deliveryTrucksMovingAvg": 348
+  "deliveryTrucksMovingAvg": 348,
+  "outsideTripShare": 0.2
  },
  "rates": {
   "workersPerResident": 0.203,
@@ -50,31 +51,76 @@
   0.914,
   0.848
  ],
- "baseFlow": {
-  "street": {
-   "speedShare": 0.574,
-   "junctionEndS": 1.2,
-   "roads": 215,
-   "gameMeanFlowQuiet": 0.56
+ "freeFlow": {
+  "speedShare": {
+   "street": 0.731,
+   "alley": 0.511,
+   "highway": 0.865,
+   "ramp": 0.779
   },
-  "alley": {
-   "speedShare": 0.464,
-   "junctionEndS": 0,
-   "roads": 63,
-   "gameMeanFlowQuiet": 0.48
+  "arriveS": {
+   "end": 0.19,
+   "signal": 0.79,
+   "major": 0.94,
+   "minor": 0,
+   "merge": 0.66,
+   "split": 1.15
   },
-  "highway": {
-   "speedShare": 0.577,
-   "junctionEndS": 0,
-   "roads": 219,
-   "gameMeanFlowQuiet": 0.64
+  "departS": {
+   "end": 0.66,
+   "signal": 2.22,
+   "major": 1.2,
+   "minor": 1.61,
+   "merge": 0.99,
+   "split": 0.69
   },
-  "ramp": {
-   "speedShare": 0.138,
-   "junctionEndS": 0,
-   "roads": 52,
-   "gameMeanFlowQuiet": 0.59
-  }
+  "source": "Fitted by tools/sim/calibrate.js on the 980 road pieces of corwen_city.json where the game's cars were not queued"
  },
- "baseFlowSource": "Fitted by tools/sim/fit_base_flow.js on the quieter half of each road class in corwen_city.json"
+ "capacity": {
+  "laneCapacityVps": 0.5,
+  "highwayLaneCapacityVps": 0.5,
+  "junctionVps": 0.8,
+  "highwayJunctionVps": 1.5,
+  "signalLostTime": 0.25,
+  "minorApproachShare": 0.4,
+  "mergeRampShare": 1,
+  "source": "Fitted by tools/sim/calibrate.js to the queues and car speeds measured in corwen_city.json and corwen_drive.json"
+ },
+ "check": {
+  "gameMeanFlowPct": 54,
+  "simMeanFlowPct": 58,
+  "roadCorrelation": 0.55,
+  "roadFlowRmsePct": 23.5,
+  "carSpeedRmsePct": 43.7,
+  "outsideVps": {
+   "game": 1.11,
+   "sim": 0.89
+  },
+  "carTime": {
+   "street": {
+    "gameShare": 0.245,
+    "simShare": 0.56,
+    "gameSpeed": 0.408,
+    "simSpeed": 0.237
+   },
+   "alley": {
+    "gameShare": 0.011,
+    "simShare": 0.022,
+    "gameSpeed": 0.432,
+    "simSpeed": 0.364
+   },
+   "highway": {
+    "gameShare": 0.703,
+    "simShare": 0.355,
+    "gameSpeed": 0.194,
+    "simSpeed": 0.277
+   },
+   "ramp": {
+    "gameShare": 0.041,
+    "simShare": 0.063,
+    "gameSpeed": 0.144,
+    "simSpeed": 0.159
+   }
+  }
+ }
 }

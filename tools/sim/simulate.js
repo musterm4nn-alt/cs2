@@ -33,26 +33,27 @@ const CONFIG = {
   flowSmoothingS: 68,                                // TrafficFlowSystem: lerp 0.125 per update ≈ 68 s time constant
   pathRandom: [0.5, 1.0],                            // PathUtils.CalculateCost: target cost × random(0.5, 1)
   // --- trip rates and base driving speeds: measured in the game, see calibration/calibration.json ---
-  // --- fitted to the game city in calibration/ (tools/sim/README.md, Calibration) ---
-  laneCapacityVps: 1.0,                              // ~3600 cars/h per lane on city roads (game cars follow closely)
-  highwayLaneCapacityVps: 0.9,                       // per highway lane
+  // --- capacities: defaults here, replaced by the values fitted to the game's queues (calibration.json "capacity",
+  //     calibrate.js; tools/sim/README.md, Calibration) ---
+  laneCapacityVps: 0.5,                              // cars per second per lane along a city road
+  highwayLaneCapacityVps: 0.5,                       // along a highway / ramp lane
+  junctionVps: 0.5,                                  // cars per second per lane leaving an approach into a city junction
+  highwayJunctionVps: 0.5,                           // into a highway merge or split
+  signalLostTime: 0.25,                              // share of a signal cycle lost to amber and change-over (TrafficLightSystem: ~6 s green phases)
+  minorApproachShare: 0.4,                           // capacity share of minor approaches at junctions without lights
+  mergeRampShare: 1,                                 // capacity share of a ramp at a highway merge
   // --- assumptions ---
   cityKm2: 16,                                       // the end-game city around the tile: 16 km² built from copies of it
   shoppingDwellH: 0.5, leisureDwellH: 2,             // time at the destination before driving home (game hours)
   vehicleSpacingM: 7.5,                              // jam density (storage per lane)
-  signalLostTime: 0.1,                               // share of a signal cycle lost to amber / clearance
-  minorApproachShare: 0.4,                           // capacity share of minor approaches at junctions without lights
-  mergeRampShare: 1,                                 // capacity share of a ramp at a highway merge (ramps get their own lane)
-  localTruckShare: 0.8,                              // where the area has industry: share of truck trips that start there
+  localTruckShare: 0.8,                             // where the area has industry: share of truck trips that start there
   otherToOutsideShare: 0.15,                         // 'other' car trips leaving the area (moving away etc.)
   stuckDespawnS: 600,                                // a car blocked this long at the head of a queue is removed
   squeezeAfterS: 60,                                 // a car blocked this long may squeeze onto a full road (deadlock breaking)
-  baseFlow: {                                        // used only when calibration.json has no "baseFlow"
-    street: { speedShare: 1, junctionEndS: 0 }, alley: { speedShare: 1, junctionEndS: 0 },
-    highway: { speedShare: 1, junctionEndS: 0 }, ramp: { speedShare: 1, junctionEndS: 0 } },
-  lotChunkCells: 6,                                  // zone blocks are split into lots of up to 6×6 cells
+  lotChunkCells: 6,                                 // zone blocks are split into lots of up to 6×6 cells
   driveSpacingCells: 2,                              // driveways closer than this on one road share an access node
 };
+if (CAL && CAL.capacity) Object.keys(CAL.capacity).forEach((k) => { if (k in CONFIG && typeof CAL.capacity[k] === 'number') CONFIG[k] = CAL.capacity[k]; });
 
 // ---------------------------------------------------------------- utilities
 function rng(seed) {
@@ -73,6 +74,15 @@ function crossT(a, b, c, d) {
   if (t <= 1e-6 || t >= 1 - 1e-6 || u <= 1e-6 || u >= 1 - 1e-6) return null;
   return { t, u };
 }
+// cubic Bezier [x0,z0, x1,z1, x2,z2, x3,z3]: split at t (de Casteljau), and the part between t0 and t1
+function bezSplit(c, t) {
+  const L = (a, b) => [c[a] + (c[b] - c[a]) * t, c[a + 1] + (c[b + 1] - c[a + 1]) * t];
+  const p01 = L(0, 2), p12 = L(2, 4), p23 = L(4, 6);
+  const q = (u, v) => [u[0] + (v[0] - u[0]) * t, u[1] + (v[1] - u[1]) * t];
+  const p012 = q(p01, p12), p123 = q(p12, p23), m = q(p012, p123);
+  return [[c[0], c[1], ...p01, ...p012, ...m], [...m, ...p123, ...p23, c[6], c[7]]];
+}
+function subCurve(c, t0, t1) { if (t1 < 1) c = bezSplit(c, t1)[0]; if (t0 > 0) c = bezSplit(c, t0 / t1)[1]; return c; }
 class Heap {  // min-heap of [key, value]
   constructor() { this.k = []; this.v = []; }
   push(key, val) { const k = this.k, v = this.v; let i = k.length; k.push(key); v.push(val); while (i > 0) { const p = (i - 1) >> 1; if (k[p] <= key) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; }
@@ -261,17 +271,23 @@ function finishGraph(net) {
   return { nodes, links, roads: road, nodeOfRec: N };
 }
 
-// junction control: capacity share of each approach
+// junction control: capacity share of each approach, and the role of every road end at its junction
+// (roleTo: how a link arrives at its end node, roleFrom: how it leaves its start node), which sets the time cars lose
+// there (fitted to the game, see calibrate.js)
 function junctionControl(nodes, links) {
+  links.forEach((l) => { l.roleTo = 'none'; l.roleFrom = 'none'; });
   nodes.forEach((n) => {
     const pieces = new Set();
     n.inn.concat(n.out).forEach((id) => pieces.add(links[id].seg + ':' + (links[id].from === links[id].to ? 0 : Math.min(links[id].from, links[id].to) + '-' + Math.max(links[id].from, links[id].to))));
     n.degree = pieces.size;
     n.inn.forEach((id) => { links[id].share = 1; });
+    const setRoles = (role) => { n.inn.forEach((id) => { links[id].roleTo = typeof role === 'function' ? role(id, true) : role; }); n.out.forEach((id) => { links[id].roleFrom = typeof role === 'function' ? role(id, false) : role; }); };
+    if (n.degree <= 1) setRoles('end');
     if (n.degree <= 2 || !n.inn.length) { n.control = 'none'; return; }
     const tlRoads = new Set(n.inn.concat(n.out).filter((id) => links[id].tl).map((id) => links[id].seg));
     const allHighway = n.inn.concat(n.out).every((id) => links[id].highway);
     n.control = allHighway ? (n.inn.length > 1 ? 'merge' : 'split') : tlRoads.size >= 1 ? 'signal' : 'priority';  // CompositionSelectSystem: any PreferTrafficLights road, 3+ roads
+    if (n.control !== 'priority') setRoles(n.control);
     if (n.control === 'split') return;
     // major axis: the approach with most lanes and the approach most opposite to it
     const heading = (id) => { const l = links[id]; return Math.atan2(l.p1[1] - l.p0[1], l.p1[0] - l.p0[0]); };
@@ -281,6 +297,11 @@ function junctionControl(nodes, links) {
     const axisA = new Set([main]);
     inn.forEach((id) => { if (id !== main && Math.abs(Math.cos(heading(id) - h0)) > 0.7) axisA.add(id); });
     const B = inn.filter((id) => !axisA.has(id));
+    if (n.control === 'priority') setRoles((id, arriving) => {
+      if (arriving) return axisA.has(id) ? 'major' : 'minor';
+      const back = n.inn.find((x) => links[x].seg === links[id].seg);
+      return back != null ? (axisA.has(back) ? 'major' : 'minor') : Math.abs(Math.cos(heading(id) - h0)) > 0.7 ? 'major' : 'minor';
+    });
     if (n.control === 'signal') {
       const la = Math.max(...[...axisA].map((id) => links[id].lanes)), lb = B.length ? Math.max(...B.map((id) => links[id].lanes)) : 0;
       const ga = lb ? la / (la + lb) : 1;
@@ -295,7 +316,12 @@ function junctionControl(nodes, links) {
       B.forEach((id) => { links[id].share = CONFIG.minorApproachShare; });
     }
   });
-  links.forEach((l) => { l.cap = l.capLink * l.share; });
+  // discharge into a junction: its own capacity per lane (city junctions, highway merges and splits), times the share
+  links.forEach((l) => {
+    const n = nodes[l.to];
+    const sat = n.degree < 3 ? l.capLink : l.lanes * (n.control === 'merge' || n.control === 'split' ? CONFIG.highwayJunctionVps : CONFIG.junctionVps);
+    l.cap = sat * l.share;
+  });
 }
 
 // ---------------------------------------------------------------- routing
@@ -311,11 +337,6 @@ function dijkstra(g, origin, cost) {
     }
   }
   return { dist, pred };
-}
-function pathTo(g, tree, dest) {
-  const p = [];
-  for (let n = dest, guard = 0; tree.pred[n] >= 0 && guard < 100000; guard++) { const l = g.links[tree.pred[n]]; p.push(l.id); n = l.from; }
-  return p.reverse();
 }
 
 // ---------------------------------------------------------------- demand
@@ -343,34 +364,64 @@ function simulate(layout, opts) {
 // a city exported from the real game by game-probe (export=...): run the same model on it to compare with the game
 function simulateCity(city, opts) {
   opts = opts || {};
+  // opts.config: temporary CONFIG values for this run (used by calibrate.js)
+  const saved = opts.config ? Object.assign({}, CONFIG) : null;
+  if (opts.config) Object.assign(CONFIG, opts.config);
+  try {
+    const c = cityGraph(city);
+    return runSim(c.g, c.lots, { name: opts.name || 'exported city', city: true, gates: c.gates, cityPop: CAL ? CAL.city.population : undefined, skipped: c.skipped, tileKm2: c.tileKm2 }, opts);
+  } finally { if (saved) Object.assign(CONFIG, saved); }
+}
+
+// the road graph, lots and outside connections of an exported city
+function cityGraph(city) {
   const byPrefab = {};
   ASSETS.roads.forEach((r) => { byPrefab[r.prefab] = r; });
   const idx = new Map(), nodes = [];
   city.nodes.forEach((n) => { idx.set(n.id, nodes.length); nodes.push({ x: n.x / CELL, y: n.z / CELL, n: 1, kinds: new Set(['x']), out: [], inn: [], wrap: false, id: n.id }); });
-  const links = [], edgeOf = new Map(), skipped = {};
+  const links = [], skipped = {};
+  const isSchool = (b) => /School|College|University/.test(b.prefab) && !/_Sub/.test(b.prefab);
+  // buildings sit along their road: the edge is cut at their driveways (one access point per 16 m), so a car drives
+  // only the part of the road it needs, as in the game
+  const accessT = new Map();
+  city.buildings.forEach((b) => { if ((b.households || b.jobs || isSchool(b)) && b.edge >= 0) { if (!accessT.has(b.edge)) accessT.set(b.edge, []); accessT.get(b.edge).push(b.t); } });
+  const accessOf = new Map();
   city.edges.forEach((e, ei) => {
     const r = byPrefab[e.prefab], sd = r && SIM.roads[r.id];
     if (!sd || e.owned || !idx.has(e.a) || !idx.has(e.b)) { skipped[e.prefab] = (skipped[e.prefab] || 0) + 1; return; }
-    const A = idx.get(e.a), B = idx.get(e.b), c = e.curve;
-    const pa = [c[0] / CELL, c[1] / CELL], pb = [c[6] / CELL, c[7] / CELL];
-    edgeOf.set(e.id, { A, B, e, ei });
-    [[A, B, sd.lanesFwd, pa, pb], [B, A, sd.lanesBack, pb, pa]].forEach(([from, to, lanes, p0, p1]) => {
-      if (!lanes) return;
-      links.push({ id: links.length, from, to, lanes, lenM: Math.max(1, e.len), vmax: sd.speedKmh / 3.6, seg: ei, ref: String(e.id), type: r.id, highway: sd.highway, tl: sd.trafficLights,
-        p0, p1, store: Math.max(1, e.len * lanes / CONFIG.vehicleSpacingM), capLink: lanes * (sd.highway ? CONFIG.highwayLaneCapacityVps : CONFIG.laneCapacityVps), road: ei, gameFlow: e.flow, curve: from === A ? c : [c[6], c[7], c[4], c[5], c[2], c[3], c[0], c[1]] });
+    const A = idx.get(e.a), B = idx.get(e.b), c = e.curve, spacing = CONFIG.driveSpacingCells * CELL;
+    const ts = [0];
+    (accessT.get(e.id) || []).map((t) => Math.round(t * e.len / spacing) * spacing / e.len).sort((x, y) => x - y)
+      .forEach((t) => { if (t * e.len >= spacing / 2 && (1 - t) * e.len >= spacing / 2 && t > ts[ts.length - 1] + 1e-6) ts.push(t); });
+    ts.push(1);
+    const at = ts.map((t, k) => {
+      if (k === 0) return A; if (k === ts.length - 1) return B;
+      const p = bezSplit(c, t)[0];
+      nodes.push({ x: p[6] / CELL, y: p[7] / CELL, n: 1, kinds: new Set(['access']), out: [], inn: [], wrap: false });
+      return nodes.length - 1;
     });
+    accessOf.set(e.id, ts.map((t, k) => ({ t, node: at[k] })));
+    for (let k = 0; k + 1 < ts.length; k++) {
+      const sub = subCurve(c, ts[k], ts[k + 1]), len = Math.max(1, e.len * (ts[k + 1] - ts[k]));
+      const pa = [sub[0] / CELL, sub[1] / CELL], pb = [sub[6] / CELL, sub[7] / CELL];
+      [[at[k], at[k + 1], sd.lanesFwd, pa, pb, sub], [at[k + 1], at[k], sd.lanesBack, pb, pa, [sub[6], sub[7], sub[4], sub[5], sub[2], sub[3], sub[0], sub[1]]]].forEach(([from, to, lanes, p0, p1, curve]) => {
+        if (!lanes) return;
+        links.push({ id: links.length, from, to, lanes, lenM: len, vmax: sd.speedKmh / 3.6, seg: ei, ref: String(e.id), type: r.id, highway: sd.highway, tl: sd.trafficLights,
+          p0, p1, store: Math.max(1, len * lanes / CONFIG.vehicleSpacingM), capLink: lanes * (sd.highway ? CONFIG.highwayLaneCapacityVps : CONFIG.laneCapacityVps), road: ei, gameFlow: e.flow, curve });
+      });
+    }
   });
   links.forEach((l) => { nodes[l.from].out.push(l.id); nodes[l.to].inn.push(l.id); });
   junctionControl(nodes, links);
   const rid = new Map(); links.forEach((l) => { if (!rid.has(l.road)) rid.set(l.road, rid.size); l.road = rid.get(l.road); });
   const g = { nodes, links, roads: rid.size };
-  // buildings -> lots at the nearer end of their road edge
+  // buildings -> lots at the access point of their driveway
   const lots = [];
   city.buildings.forEach((b) => {
-    const school = /School|College|University/.test(b.prefab) && !/_Sub/.test(b.prefab);
+    const school = isSchool(b);
     if (!(b.households || b.jobs || school)) return;
-    const ed = edgeOf.get(b.edge);
-    const node = ed ? (b.t < 0.5 ? ed.A : ed.B) : -1;
+    const acc = accessOf.get(b.edge);
+    const node = acc ? acc.reduce((best, x) => (Math.abs(x.t - b.t) < Math.abs(best.t - b.t) ? x : best)).node : -1;
     const family = b.commercialJobs ? 'commercial' : b.households ? 'residential' : /Industrial/.test(b.prefab) ? 'industrial' : 'work';
     lots.push({ ref: String(b.id), kind: 'building', family, x: b.x / CELL, y: b.z / CELL,
       households: b.households, jobs: b.jobs, students: school ? 1000 : 0, park: /Park|Plaza|Square/.test(b.prefab), node });
@@ -378,8 +429,22 @@ function simulateCity(city, opts) {
   // outside connections: road ends at the map border
   const ext = Math.max(...nodes.map((n) => Math.max(Math.abs(n.x), Math.abs(n.y))));
   const gates = [];
-  nodes.forEach((n, i) => { if ((Math.abs(n.x) > ext - 10 || Math.abs(n.y) > ext - 10) && n.inn.length + n.out.length <= 2) gates.push(i); });
-  return runSim(g, lots, { name: opts.name || 'exported city', city: true, gates, cityPop: CAL ? CAL.city.population : undefined, skipped, tileKm2: (2 * ext * CELL / 1000) ** 2 }, opts);
+  nodes.forEach((n, i) => { if (n.id != null && (Math.abs(n.x) > ext - 10 || Math.abs(n.y) > ext - 10) && n.inn.length + n.out.length <= 2) gates.push(i); });
+  links.forEach((l) => { l.cls = linkClass(l); });
+  return { g, lots, gates, skipped, tileKm2: (2 * ext * CELL / 1000) ** 2 };
+}
+
+// free driving and the time lost at road ends, from calibration.json (calibrate.js)
+function freeFlow() {
+  const f = CAL && CAL.freeFlow;
+  return f || { speedShare: { street: 1, alley: 1, highway: 1, ramp: 1 }, arriveS: {}, departS: {} };
+}
+function linkTimes(links) {
+  const f = freeFlow();
+  links.forEach((l) => {
+    l.cls = linkClass(l); l.base = f.speedShare[l.cls];
+    l.endDelay = (f.arriveS[l.roleTo] || 0) + (f.departS[l.roleFrom] || 0);
+  });
 }
 
 function linkClass(l) {
@@ -401,12 +466,10 @@ function runSim(g, lots, ctx, opts) {
   const rates = CAL ? CAL.rates : null;
   if (!rates) throw new Error('tools/sim/calibration/calibration.json is missing (see README: Calibration).');
   const perHH = CAL.city.personsPerHousehold || mix.persons;
-  // measured in the game (calibration/corwen_city.json, quiet roads): cars average a share of the speed limit and
-  // lose a fixed time where a road piece ends at a junction (braking, yielding, turning, merging)
-  links.forEach((l) => {
-    const cls = linkClass(l), b = ((CAL && CAL.baseFlow) || CONFIG.baseFlow)[cls];
-    l.cls = cls; l.base = b.speedShare; l.endDelay = nodes[l.to].degree >= 3 ? b.junctionEndS : 0;
-  });
+  // measured in the game (calibration/corwen_city.json): cars average a share of the speed limit between junctions
+  // and lose time where a road arrives at or leaves a junction, by the kind of junction (braking, waiting for the
+  // lights or a gap, turning, merging)
+  linkTimes(links);
 
   // population and the game's traffic-reduction gates, relative to the calibration city
   const tileKm2 = ctx.tileKm2 || 1;
@@ -417,6 +480,9 @@ function runSim(g, lots, ctx, opts) {
   const kWork = gNow.work / gRef.work, kLeisure = gNow.leisure / gRef.leisure;
   const pWork = Math.min(1, rates.workCarTripsPerWorker * kWork);
   const pLeisure = gNow.leisure;
+  // an exported city: the share of shopping, leisure and other car trips that go out of the city, and of goods
+  // trucks that come from outside (fitted to the traffic the game counts at its outside connections)
+  const outsideShare = !ctx.city ? null : opts.outsideShare != null ? opts.outsideShare : CAL.city.outsideTripShare != null ? CAL.city.outsideTripShare : null;
 
   // free-flow costs and trees from every access node
   const ff = new Float64Array(links.length);
@@ -501,14 +567,38 @@ function runSim(g, lots, ctx, opts) {
   const winDist = new Float64Array(L), winDur = new Float64Array(L);
   const NB = 4, roadDist = new Float64Array(g.roads * NB), roadDur = new Float64Array(g.roads * NB), roadVol = new Float64Array(g.roads);
   const linkVol = new Float64Array(L), linkMaxQ = new Float64Array(L), nodeWaitS = new Float64Array(nodes.length), nodeMaxQ = new Float64Array(nodes.length);
-  const series = [];
+  const series = [], byClass = {};
+  const roadTime = new Float64Array(g.roads), roadDistAll = new Float64Array(g.roads), roadDurVAll = new Float64Array(g.roads);
   const stats = { trips: 0, done: 0, walked: 0, despawned: 0, noPath: 0, byPurpose: {}, commuteS: [], tripS: [], spawnWaitS: 0, unfinished: 0 };
-  let cost = ff.slice(), trees = new Map(), treeEpoch = -1;
-  function treeFrom(n, now) {
+  // route search per trip, like the game's pathfinder: road cost = length / (speed limit × measured flow), refreshed
+  // every game hour, and every road the search expands gets its own random factor 0.5–1 for this trip
+  // (PathfindJobs.AddConnections), which spreads traffic over alternative routes
+  const cost = ff.slice();
+  let costEpoch = -1;
+  const NN = nodes.length, rDist = new Float64Array(NN), rPred = new Int32Array(NN), rSeen = new Int32Array(NN), rDone = new Int32Array(NN);
+  let rEpoch = 0;
+  function routeFor(o, dst, now) {
     const ep = Math.floor(now / HOUR);
-    if (ep !== treeEpoch) { treeEpoch = ep; trees = new Map(); for (let i = 0; i < L; i++) cost[i] = links[i].lenM / (links[i].vmax * Math.max(0.05, flowEma[i])); }
-    if (!trees.has(n)) trees.set(n, dijkstra(g, n, cost));
-    return trees.get(n);
+    if (ep !== costEpoch) { costEpoch = ep; for (let i = 0; i < L; i++) cost[i] = links[i].lenM / (links[i].vmax * Math.max(0.05, flowEma[i])); }
+    const e = ++rEpoch, h = new Heap();
+    rDist[o] = 0; rSeen[o] = e; rPred[o] = -1; h.push(0, o);
+    while (h.size) {
+      const u = h.pop();
+      if (rDone[u] === e) continue;
+      rDone[u] = e;
+      if (u === dst) break;
+      const du = rDist[u], out = nodes[u].out;
+      for (let i = 0; i < out.length; i++) {
+        const id = out[i], v = links[id].to;
+        if (rDone[v] === e) continue;
+        const nd = du + cost[id] * (CONFIG.pathRandom[0] + R() * (CONFIG.pathRandom[1] - CONFIG.pathRandom[0]));
+        if (rSeen[v] !== e || nd < rDist[v]) { rSeen[v] = e; rDist[v] = nd; rPred[v] = id; h.push(nd, v); }
+      }
+    }
+    if (rDone[dst] !== e) return [];
+    const p = [];
+    for (let n = dst; rPred[n] >= 0 && n !== o; n = links[rPred[n]].from) p.push(rPred[n]);
+    return p.reverse();
   }
   // departures, ordered by time
   const events = new Heap();
@@ -530,20 +620,22 @@ function runSim(g, lots, ctx, opts) {
       const w = Object.assign({ home: h.node, job: s ? s.node : pickGate(), last: null }, shiftTimes('school'));
       commute(w, 'school');
     }
+    // an exported city: a measured share of these trips goes out of the city (outside connections), see calibration
+    const away = () => outsideShare != null && R() < outsideShare;
     homeLots.forEach((h) => {
       const nShop = round(h.households * rates.shoppingCarTripsPerHousehold * kLeisure);
       for (let i = 0; i < nShop && shops.length; i++) {
-        const s = choose(h.node, shops, (o, c) => tff(o, c.node) + 1);
+        const s = away() ? { node: pickExit() } : choose(h.node, shops, (o, c) => tff(o, c.node) + 1);
         if (s) plan(base + randomHour(), h.node, s.node, 'shopping', { dwell: CONFIG.shoppingDwellH * HOUR });
       }
       const nLei = round(h.households * perHH * rates.leisureCarTripsPerResident * kLeisure);
       for (let i = 0; i < nLei && leisureLots.length; i++) {
-        const s = choose(h.node, leisureLots, (o, c) => tff(o, c.node) + 1);
+        const s = away() ? { node: pickExit() } : choose(h.node, leisureLots, (o, c) => tff(o, c.node) + 1);
         if (s) plan(base + randomHour(), h.node, s.node, 'leisure', { dwell: CONFIG.leisureDwellH * HOUR });
       }
       const nOther = round(h.households * rates.otherCarTripsPerHousehold);
       for (let i = 0; i < nOther; i++) {
-        const dest = R() < CONFIG.otherToOutsideShare ? pickExit() : anyLots[Math.floor(R() * anyLots.length)].node;
+        const dest = (outsideShare != null ? away() : R() < CONFIG.otherToOutsideShare) ? pickExit() : anyLots[Math.floor(R() * anyLots.length)].node;
         plan(base + randomHour(), h.node, dest, 'other', { dwell: 1 * HOUR });
       }
     });
@@ -553,7 +645,7 @@ function runSim(g, lots, ctx, opts) {
     const trucks = round(goodsLots.reduce((s, l) => s + l.jobs, 0) * rates.truckTripsPerGoodsJob);
     for (let i = 0; i < trucks && goodsLots.length; i++) {
       const s = pickWeighted(goodsLots, (x) => x.jobs);
-      const local = industry.length && R() < CONFIG.localTruckShare;
+      const local = industry.length && R() < (outsideShare != null ? 1 - outsideShare : CONFIG.localTruckShare);
       plan(base + randomHour(), local ? pickWeighted(industry, (x) => x.jobs).node : pickGate(), s.node, 'truck', { dwell: 0.25 * HOUR });
     }
     // city service vehicles (garbage, police, mail, hearses, ambulances)
@@ -580,8 +672,7 @@ function runSim(g, lots, ctx, opts) {
       else if (e.dwell) plan(now + e.dwell + 60, e.dest, back(e), 'home');
       return;
     }
-    const tree = treeFrom(e.origin, now);
-    const route = pathTo(g, tree, e.dest);
+    const route = routeFor(e.origin, e.dest, now);
     if (!route.length || links[route[0]].from !== e.origin) { if (measuring) stats.noPath++; return; }
     const v = { route, k: 0, t0: now, tIn: now, tEnd: 0, e, measuring, head: 0 };
     waiting[e.origin].push(v);
@@ -602,7 +693,9 @@ function runSim(g, lots, ctx, opts) {
     if (Math.floor(now / DAY) === measureDay) {
       const w = binW(now % DAY), r = lk.road;
       for (let b = 0; b < NB; b++) { roadDist[r * NB + b] += w[b] * lk.lenM; roadDur[r * NB + b] += w[b] * dur * lk.vmax; }
-      roadVol[r] += 1 / Math.max(1, (lk.lanes ? 1 : 1));
+      roadVol[r] += 1; roadTime[r] += dur; roadDistAll[r] += lk.lenM; roadDurVAll[r] += dur * lk.vmax;
+      const c = byClass[lk.cls] || (byClass[lk.cls] = { time: 0, dist: 0, durV: 0 });
+      c.time += dur; c.dist += lk.lenM; c.durV += dur * lk.vmax;
     }
   }
   function arrive(v, now) {
@@ -744,12 +837,19 @@ function runSim(g, lots, ctx, opts) {
     pairs.forEach(([gf, sf, l]) => { const k = l.highway ? 'highway' : l.type; (byType[k] = byType[k] || { n: 0, game: 0, sim: 0 }); byType[k].n++; byType[k].game += gf; byType[k].sim += sf; });
     Object.values(byType).forEach((v) => { v.game = Math.round(v.game / v.n * 100); v.sim = Math.round(v.sim / v.n * 100); });
     const congested = (f) => pairs.filter((x) => f(x)).length;
+    // where the cars spend their time (share of car time on each road class) and how fast they go there
+    const totT = Object.values(byClass).reduce((s, c) => s + c.time, 0) || 1;
+    const carTime = {};
+    Object.entries(byClass).forEach(([k, c]) => { carTime[k] = { share: +(c.time / totT).toFixed(3), speed: +(c.dist / Math.max(1e-9, c.durV)).toFixed(3) }; });
+    const outsideVps = [...isGate].reduce((s, n) => s + nodes[n].inn.concat(nodes[n].out).reduce((t, id) => t + linkVol[id], 0), 0) / DAY;
     out.compare = { roads: pairs.length, gameMeanFlowPct: Math.round(mg * 100), simMeanFlowPct: Math.round(ms * 100), correlation: +(cov / (sg * ss || 1)).toFixed(2),
       meanAbsDiffPct: Math.round(mean(pairs.map((x) => Math.abs(x[0] - x[1]))) * 100), byType,
       gameBelow50: congested((x) => x[0] < 0.5), simBelow50: congested((x) => x[1] < 0.5), bothBelow50: congested((x) => x[0] < 0.5 && x[1] < 0.5),
-      skippedEdges: ctx.skipped, gateways: gate.length };
+      skippedEdges: ctx.skipped, gateways: gate.length, carTime, carsOnRoads: Math.round(totT / DAY), outsideVps: +outsideVps.toFixed(2), outsideShare };
   }
-  out._draw = { occ: q.map((x) => x.length), headNext: q.map((x) => (x.length && x[0].k + 1 < x[0].route.length ? x[0].route[x[0].k + 1] : -1)), headWait: q.map((x) => (x.length ? x[0].head : 0)), links, linkFlow, linkVol, linkMaxQ, nodes, lots, series, result: ctx.result, layout: ctx.layout, junctions, roadFlow };
+  // per road over the whole measured day: car time (s) and speed / limit, car-weighted (what the probe samples)
+  const roadSpeed = Array.from(roadTime, (t, r) => (roadDurVAll[r] > 0 ? roadDistAll[r] / roadDurVAll[r] : null));
+  out._draw = { occ: q.map((x) => x.length), headNext: q.map((x) => (x.length && x[0].k + 1 < x[0].route.length ? x[0].route[x[0].k + 1] : -1)), headWait: q.map((x) => (x.length ? x[0].head : 0)), links, linkFlow, linkVol, linkMaxQ, nodes, lots, series, result: ctx.result, layout: ctx.layout, junctions, roadFlow, roadTime, roadSpeed, gates: [...isGate] };
   return out;
 }
 
@@ -769,8 +869,9 @@ function cityMapSVG(o, which) {
   let svg = `<svg viewBox="0 0 ${Wp.toFixed(0)} ${Hp.toFixed(0)}" width="100%" style="max-width:${Wp.toFixed(0)}px;background:var(--map);overflow:hidden">`;
   const drawn = new Set();
   d.links.forEach((l) => {
-    if (which === 'game' && drawn.has(l.road)) return;
-    drawn.add(l.road);
+    const piece = l.road + ':' + Math.min(l.from, l.to) + '-' + Math.max(l.from, l.to);
+    if (which === 'game' && drawn.has(piece)) return;
+    drawn.add(piece);
     const f = which === 'game' ? l.gameFlow.reduce((a, b) => a + b, 0) / 4 : d.linkFlow[l.id];
     const c = l.curve, w = which === 'game' ? (l.highway ? 2.2 : 1.4) : 0.8 + 2.6 * Math.sqrt(d.linkVol[l.id] / maxVol);
     svg += `<path d="M${X(c[0])} ${Y(c[1])}C${X(c[2])} ${Y(c[3])} ${X(c[4])} ${Y(c[5])} ${X(c[6])} ${Y(c[7])}" fill="none" stroke="${flowColor(f)}" stroke-width="${w.toFixed(1)}" stroke-linecap="round"><title>${esc(l.type)} · ${which === 'game' ? 'game' : 'simulator'} flow ${Math.round(f * 100)}%${which === 'game' ? '' : ' · ' + Math.round(d.linkVol[l.id]) + ' cars/day'}</title></path>`;
@@ -954,5 +1055,5 @@ function main() {
   }
 }
 
-module.exports = { simulate, simulateCity, reportHTML, readLayout, CONFIG };
+module.exports = { simulate, simulateCity, cityGraph, linkTimes, reportHTML, readLayout, CONFIG, CAL };
 if (require.main === module) main();

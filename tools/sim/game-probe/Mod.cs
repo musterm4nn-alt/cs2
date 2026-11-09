@@ -6,7 +6,11 @@
 //   - every N game minutes appends one JSON line to the output file: game time, population, households, workers,
 //     jobs, cars on the road by type and by the driver's travel purpose, citizens travelling by purpose, and the
 //     game's own city traffic flow %,
-//   - after the configured number of game hours, writes "done" and (optionally) quits the game.
+//   - optionally (driveEveryMinutes) samples every moving car on a road edge: its speed against the limit and what
+//     the game says holds it up (Blocker type: following a car, crossing traffic, lights, a car pulling out, ...),
+//     summed per road edge into drive_stats.json,
+//   - after the configured number of game hours, writes "done", optionally exports the city again (exportAtEnd)
+//     and (optionally) quits the game.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -24,6 +28,7 @@ using Game.Net;
 
 using PrefabSystem = Game.Prefabs.PrefabSystem;
 using PrefabRef = Game.Prefabs.PrefabRef;
+using CarData = Game.Prefabs.CarData;
 using Game.SceneFlow;
 using Game.Simulation;
 using Game.Tools;
@@ -66,6 +71,13 @@ namespace CS2SimProbe
         int truckStarts, allStarts, scans;
         bool started, finished;
         string outPath;
+        // drive sampling: per road edge (entity index) -> samples, sum of speed / limit, lost speed share and stopped
+        // samples by blocker type, samples by vehicle kind, lane flags
+        class EdgeStat { public int n, parking, entering, queue; public double ratio, ratioCurve; public double[] lost = new double[9]; public int[] stopped = new int[9]; public int[] kind = new int[5]; }
+        readonly Dictionary<int, EdgeStat> drive = new Dictionary<int, EdgeStat>();
+        EntityQuery qDrive;
+        uint lastDrive;
+        long driveSamples, onNode, offRoad;
 
         float F(string k, float d) => cfg.TryGetValue(k, out var v) && float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) ? f : d;
 
@@ -92,6 +104,7 @@ namespace CS2SimProbe
             qCitizens = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<Citizen>() }, None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() } });
             qCompanies = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<WorkProvider>() }, None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() } });
             qTravellers = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<TravelPurpose>(), ComponentType.ReadOnly<CurrentTransport>() }, None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() } });
+            qDrive = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<Car>(), ComponentType.ReadOnly<CarCurrentLane>(), ComponentType.ReadOnly<Game.Objects.Moving>(), ComponentType.ReadOnly<Blocker>(), ComponentType.ReadOnly<PrefabRef>() }, None = none });
             ReadConfig();
             Mod.log.Info("ProbeSystem created");
         }
@@ -145,14 +158,21 @@ namespace CS2SimProbe
             if (auto2 != null && auto2.Enabled) auto2.Enabled = false;
             if (sim.selectedSpeed != F("speed", 3f)) sim.selectedSpeed = F("speed", 3f);   // also unpauses
             if (frame - lastScan >= F("scanEveryMinutes", 2f) * FramesPerDay / 1440f) { lastScan = frame; try { Scan(); } catch (Exception e) { Mod.log.Error(e); } }
+            if (F("driveEveryMinutes", 0f) > 0 && frame - lastDrive >= F("driveEveryMinutes", 0f) * FramesPerDay / 1440f) { lastDrive = frame; try { DriveSample(); } catch (Exception e) { Mod.log.Error(e); } }
             float every = F("sampleEveryMinutes", 20f) * FramesPerDay / 1440f;
             if (frame - lastSample < every) return;
             lastSample = frame;
             float hours = (frame - startFrame) / FramesPerDay * 24f;
             try { Sample(frame, hours); } catch (Exception e) { Mod.log.Error(e); Write("{\"event\":\"error\",\"message\":\"" + Esc(e.Message) + "\"}"); }
+            if (F("driveEveryMinutes", 0f) > 0) try { WriteDrive(); } catch (Exception e) { Mod.log.Error(e); }
             if (hours >= F("durationHours", 48f))
             {
                 finished = true;
+                if (cfg.TryGetValue("exportAtEnd", out var ex2) && ex2.Length > 0)
+                {
+                    try { Export(ex2); Write("{\"event\":\"exported\",\"file\":\"" + Esc(ex2) + "\"}"); }
+                    catch (Exception e) { Mod.log.Error(e); Write("{\"event\":\"error\",\"message\":\"export: " + Esc(e.Message) + "\"}"); }
+                }
                 Write("{\"event\":\"done\"}");
                 if (F("quit", 1f) > 0) Application.Quit();
             }
@@ -182,6 +202,66 @@ namespace CS2SimProbe
             using (var ents = qMovingCars.ToEntityArray(Allocator.Temp))
                 for (int i = 0; i < ents.Length; i++) { curA.Add(ents[i]); if (!prevAll.Contains(ents[i])) allStarts++; }
             prevAll = curA;
+        }
+
+        // every moving car on a road edge lane: speed / min(car's top speed, speed limit) (the game's flow metric,
+        // CarNavigationSystem.ApplySideEffects), and the blocker type the game gives it
+        void DriveSample()
+        {
+            using (var ents = qDrive.ToEntityArray(Allocator.Temp))
+            using (var lanes = qDrive.ToComponentDataArray<CarCurrentLane>(Allocator.Temp))
+            using (var mov = qDrive.ToComponentDataArray<Game.Objects.Moving>(Allocator.Temp))
+            using (var blk = qDrive.ToComponentDataArray<Blocker>(Allocator.Temp))
+            using (var prf = qDrive.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var lane = lanes[i].m_Lane;
+                    if (lane == Entity.Null || !EntityManager.HasComponent<Game.Net.CarLane>(lane) || !EntityManager.HasComponent<Owner>(lane)) { offRoad++; continue; }
+                    var owner = EntityManager.GetComponentData<Owner>(lane).m_Owner;
+                    if (!EntityManager.HasComponent<Edge>(owner) || !EntityManager.HasComponent<Road>(owner)) { onNode++; continue; }
+                    var cl = EntityManager.GetComponentData<Game.Net.CarLane>(lane);
+                    var cd = EntityManager.HasComponent<CarData>(prf[i].m_Prefab) ? EntityManager.GetComponentData<CarData>(prf[i].m_Prefab) : default;
+                    float vmax = Math.Max(0.1f, Math.Min(cd.m_MaxSpeed > 0 ? cd.m_MaxSpeed : 1000f, cl.m_SpeedLimit));
+                    float vcurve = Math.Max(0.1f, cd.m_MaxSpeed > 0 ? VehicleUtils.GetMaxDriveSpeed(cd, cl) : cl.m_SpeedLimit);
+                    var vel = mov[i].m_Velocity;
+                    float v = (float)Math.Sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+                    float r = Math.Min(1f, v / vmax);
+                    int t = Math.Min(8, (int)blk[i].m_Type);
+                    if (!drive.TryGetValue(owner.Index, out var st)) { st = new EdgeStat(); drive[owner.Index] = st; }
+                    st.n++; st.ratio += r; st.ratioCurve += Math.Min(1f, v / vcurve); st.lost[t] += 1 - r;
+                    if (v < 0.5f) st.stopped[t]++;
+                    var e = ents[i];
+                    int kind = EntityManager.HasComponent<PersonalCar>(e) ? 0 : EntityManager.HasComponent<DeliveryTruck>(e) ? 1
+                        : EntityManager.HasComponent<PublicTransport>(e) || EntityManager.HasComponent<Taxi>(e) ? 3
+                        : EntityManager.HasComponent<GarbageTruck>(e) || EntityManager.HasComponent<PoliceCar>(e) || EntityManager.HasComponent<Ambulance>(e) || EntityManager.HasComponent<Hearse>(e) || EntityManager.HasComponent<PostVan>(e) || EntityManager.HasComponent<FireEngine>(e) || EntityManager.HasComponent<MaintenanceVehicle>(e) ? 2 : 4;
+                    st.kind[kind]++;
+                    var fl = lanes[i].m_LaneFlags;
+                    if ((fl & Game.Vehicles.CarLaneFlags.ParkingSpace) != 0) st.parking++;
+                    if ((fl & Game.Vehicles.CarLaneFlags.EnteringRoad) != 0) st.entering++;
+                    if ((fl & (Game.Vehicles.CarLaneFlags.Queue | Game.Vehicles.CarLaneFlags.QueueReached)) != 0) st.queue++;
+                    driveSamples++;
+                }
+        }
+
+        void WriteDrive()
+        {
+            var ci = CultureInfo.InvariantCulture;
+            var sb = new StringBuilder();
+            sb.Append("{\"blockerTypes\":[\"none\",\"continuing\",\"crossing\",\"signal\",\"temporary\",\"limit\",\"caution\",\"spawn\",\"oncoming\"],\"kinds\":[\"personal\",\"delivery\",\"service\",\"transit\",\"other\"]");
+            sb.Append(",\"samples\":").Append(driveSamples).Append(",\"onNode\":").Append(onNode).Append(",\"offRoad\":").Append(offRoad).Append(",\"edges\":{");
+            bool first = true;
+            foreach (var kv in drive)
+            {
+                var st = kv.Value;
+                if (!first) sb.Append(','); first = false;
+                sb.Append('"').Append(kv.Key).Append("\":{\"n\":").Append(st.n).Append(",\"r\":").Append(st.ratio.ToString("0.#", ci)).Append(",\"rc\":").Append(st.ratioCurve.ToString("0.#", ci));
+                sb.Append(",\"lost\":[");
+                for (int k = 0; k < 9; k++) { if (k > 0) sb.Append(','); sb.Append(st.lost[k].ToString("0.#", ci)); }
+                sb.Append("],\"stopped\":[").Append(string.Join(",", st.stopped)).Append("],\"kind\":[").Append(string.Join(",", st.kind)).Append(']');
+                sb.Append(",\"parking\":").Append(st.parking).Append(",\"entering\":").Append(st.entering).Append(",\"queue\":").Append(st.queue).Append('}');
+            }
+            sb.Append("}}");
+            File.WriteAllText(cfg.TryGetValue("driveOut", out var d) ? d : Path.Combine(Mod.Dir ?? ".", "drive_stats.json"), sb.ToString());
         }
 
         void Sample(uint frame, float hours)
