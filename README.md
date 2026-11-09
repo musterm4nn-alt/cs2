@@ -98,10 +98,23 @@ pip install UnityPy TypeTreeGeneratorAPI
 python tools/extract_game_data.py "C:/Program Files (x86)/Steam/steamapps/common/Cities Skylines II"
 python tools/build_assets.py
 node tools/test_validator.js
+node tools/sim/test_sim.js
 ```
 
 `data/game_data.json` (the raw extraction) is not committed. After changing the data, tag a new version
 (`v2.x.y`, and move `v2`) so jsDelivr serves it.
+
+## Traffic simulation (local evaluation)
+
+[tools/sim/](tools/sim/README.md) simulates a layout's traffic over a game day, for judging battle results on your
+own machine (the models don't use it, and it doesn't change the battle rules). The tile is simulated as an endless
+city of copies of itself; trip timing, shifts and route choice follow the game code, and trip rates, driving speeds
+and road capacities were measured in a real game city with a small measuring mod. The report shows the game's own
+traffic flow %, a map coloured by flow, and the worst roads and junctions.
+
+```bash
+node tools/sim/simulate.js tools/calibration/layouts/06-01-B.json
+```
 
 ## Disclaimer
 

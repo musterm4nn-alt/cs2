@@ -1,2 +1,6 @@
 data/game_data.json
 __pycache__/
+data/sim_params_raw.json
+tools/sim/out/
+tools/sim/game-probe/bin/
+tools/sim/game-probe/obj/
