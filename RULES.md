@@ -5,12 +5,13 @@ automatically, so follow the format exactly.
 
 ## Data
 
-- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/CATALOG.md
+- Catalog index: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.4.0/CATALOG.md
   It lists about 20 catalog files, each under 7,000 characters (web fetch tools may cut longer pages off). Always read
-  the `zones-roads` files, then the files for the buildings you need (services, education & culture, parks & parking,
-  utilities, transport, signature buildings).
-- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/assets.json
-- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js
+  all three zones-roads files (zones-roads-1, zones-roads-2, zones-roads-3), even the short last one; the validator
+  warns about each one you skip. Then read the files for the buildings you need (services, education & culture, parks
+  & parking, utilities, transport, signature buildings).
+- Asset list, full JSON (what the validator uses): https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.4.0/assets.json
+- Validator script: https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.4.0/validator.js
 
 All sizes, road widths, unique flags and upgrade rules were extracted from the game files (base game + DLC).
 Only use asset, zone and road ids that appear in that data. Never invent buildings or sizes.
@@ -112,7 +113,7 @@ segments are easiest to validate. Road widths come from the game's road sections
 
 ```html
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.4.0/validator.js"></script>
 <script>
   const layout = { /* your layout JSON */ };
   CS2.mount(layout, document.getElementById('app'));

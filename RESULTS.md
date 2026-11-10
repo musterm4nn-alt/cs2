@@ -8,7 +8,8 @@ moved between sections.
 
 | Section | Tool | Rounds | Decided by |
 |---|---|---|---|
-| [v3.3.0](#v330-record-from-round-7) (current) | v3.3.0 | from 7 | fewer errors, then more points out of 100 |
+| [v3.4.0](#v340-record-from-round-8) (current) | v3.4.0 | from 8 | fewer errors, then more points out of 100 |
+| [v3.3.0](#v330-record-round-7) | v3.3.0 | 7 | fewer errors, then more points out of 100 |
 | [v3.2.0](#v320-record-rounds-56) | v3.2.0 | 5–6 | five-row scorecard (errors, warnings, zoned share, coverage, upkeep) |
 
 ## Rules for every section
@@ -21,7 +22,26 @@ moved between sections.
 - Model names are recorded exactly as Arena reveals them. Effort levels (-high, -xhigh, -max) and codenames are
   separate entries, as on Arena's own leaderboard.
 
-## v3.3.0 record (from round 7)
+## v3.4.0 record (from round 8)
+
+Same scoring as v3.3.0. The only change is the reading instruction: the prompt, RULES.md and CATALOG.md name all three
+required zones-roads files.
+
+### Leaderboard (v3.4.0)
+
+Sorted by wins, then win rate, then average points of valid layouts.
+
+| Model | Battles | Wins | Losses | Draws | Valid layouts | Avg points (valid) |
+|---|---|---|---|---|---|---|
+
+### Battles (v3.4.0)
+
+"Read" = catalog files confirmed read completely (of 21).
+
+| Round | Battle | Model A | Errors A | Points A | Read A | Model B | Errors B | Points B | Read B | Winner | Decided by |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+
+## v3.3.0 record (round 7)
 
 A battle is decided by **fewer errors**, then **more points out of 100**: capacity 25, balance 15, services 25,
 traffic 20, cost 15, −3 per warning (details in the README and in every validator report). An exact tie falls back
@@ -33,6 +53,14 @@ Sorted by wins, then win rate, then average points of valid layouts.
 
 | Model | Battles | Wins | Losses | Draws | Valid layouts | Avg points (valid) |
 |---|---|---|---|---|---|---|
+| claude-haiku-5.5-low | 1 | 1 | 0 | 0 | 1 | 87.6 |
+| claude-haiku-5.5-max | 1 | 1 | 0 | 0 | 1 | 87.4 |
+| qwen3.8-max-0902 | 1 | 1 | 0 | 0 | 1 | 70.5 |
+| mimo-v2.6-pro | 1 | 1 | 0 | 0 | 0 | – |
+| deepseek-v4.1-flash-max | 1 | 0 | 1 | 0 | 1 | 82.2 |
+| claude-sonnet-5-5-xhigh | 1 | 0 | 1 | 0 | 0 | – |
+| gemini-3.8-flash | 1 | 0 | 1 | 0 | 0 | – |
+| kairo | 1 | 0 | 1 | 0 | 0 | – |
 
 ### Battles (v3.3.0)
 
@@ -40,6 +68,25 @@ Sorted by wins, then win rate, then average points of valid layouts.
 
 | Round | Battle | Model A | Errors A | Points A | Read A | Model B | Errors B | Points B | Read B | Winner | Decided by |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 7¹ | 07-01 | qwen3.8-max-0902 | 0 | 70.5 | 14 | kairo | 2 | 82.7 | 11 | **qwen3.8-max-0902** | errors² |
+| 7¹ | 07-02 | claude-sonnet-5-5-xhigh | no layout | – | – | mimo-v2.6-pro | 3 | 71.6 | 15 | **mimo-v2.6-pro** | no output³ |
+| 7¹ | 07-03 | deepseek-v4.1-flash-max | 0 | 82.2 | 12 | claude-haiku-5.5-low | 0 | 87.6 | 9 | **claude-haiku-5.5-low** | points⁴ |
+| 7¹ | 07-04 | gemini-3.8-flash | 24 | 90.5 | 19 | claude-haiku-5.5-max | 0 | 87.4 | 13 | **claude-haiku-5.5-max** | errors⁵ |
+
+¹ Round 7 was played on November 10, 2026; its uploaded files are named 04-01 to 04-04.
+
+² 07-01-B: a medical clinic and a dog park overlap a high-density residential zone (2 errors). It also didn't
+confirm reading catalog/zones-roads-3.md (a warning). Without the errors it would have won on points (82.7 vs 70.5).
+07-01-A's two warnings are food-stall sub-buildings whose front doesn't touch a road.
+
+³ 07-02-A read 15 catalog files, then fetched the validator and assets.json and stopped without writing a page.
+07-02-B's three errors are a bicycle hall, a radio mast and a parking lot that face only the tram track.
+
+⁴ 07-03: both layouts are clean (no errors, no warnings). A zoned more (capacity 24.3 vs 19.7) but lost on traffic
+(9.4 vs 20 of 20).
+
+⁵ 07-04-A: 24 zone strips along the six-lane spine end one cell short of the road, so they touch no road (24
+errors). Without them it would have won on points (90.5 vs 87.4).
 
 ## v3.2.0 record (rounds 5–6)
 

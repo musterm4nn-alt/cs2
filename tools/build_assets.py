@@ -497,7 +497,7 @@ PACK_OF_CATEGORY = {
 }
 PACK_ORDER = ["services", "education-culture", "parks-parking", "utilities", "transport-road-air", "transport-rail-water",
               "signatures-residential", "signatures-business", "other"]
-RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/"
+RAW_BASE = "https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.4.0/"
 LEGEND = [
     "Size = lot width (along the road, the building's front) × lot depth, in 8 m cells.",
     "U = unique, may be placed only once. Placement: road = front edge must touch a road; near_parent = sub-building,",
@@ -627,12 +627,18 @@ def write_catalog(out):
         files += emit(key, key.replace("-", " "), sections, LEGEND)
 
     # index
+    zr_files = [f["file"].replace("catalog/", "").replace(".md", "") for f in files if f["file"].startswith("catalog/zones-roads")]
+    zr_list = {1: "", 2: "both", 3: "three"}.get(len(zr_files), str(len(zr_files))) + " zones-roads files (" + ", ".join(zr_files) + ")"
     idx = [
         "# CS2 asset catalog (index)",
         "",
         "The catalog is split into files of under 7,000 characters, because web tools may cut longer pages off without",
-        "warning (Code Arena's web_fetch stops at 8,000 characters). Read the `zones-roads` files first, then the files for",
-        "the kinds of buildings you need. Every file ends with a line starting `END OF FILE`; if a file you fetched does not",
+        "warning (Code Arena's web_fetch stops at 8,000 characters).",
+        "",
+        "**First read all " + zr_list + ".** They are required, even the short",
+        "last one; the validator warns about each one you skip. Then read the files for the kinds of buildings you need.",
+        "",
+        "Every file ends with a line starting `END OF FILE`; if a file you fetched does not",
         "end with that line, it was cut off. Copy the END OF FILE line of every file you read completely into your layout's",
         "`\"catalogMarkers\"` list; the validator reports which files you read.",
         "",
@@ -642,7 +648,8 @@ def write_catalog(out):
         "---|---|---|---",
     ]
     for f in files:
-        idx.append(f"[{f['file']}]({RAW_BASE}{f['file']}) | {f['contents']} | {f['entries']} | {round(f['bytes'] / 1024, 1)} KB")
+        req = "**Required.** " if f["file"].startswith("catalog/zones-roads") else ""
+        idx.append(f"[{f['file']}]({RAW_BASE}{f['file']}) | {req}{f['contents']} | {f['entries']} | {round(f['bytes'] / 1024, 1)} KB")
     (ROOT / "CATALOG.md").write_text("\n".join(idx) + "\n", encoding="utf-8")
     return [{k: f[k] for k in ("file", "entries", "marker")} for f in files]
 

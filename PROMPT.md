@@ -7,8 +7,8 @@ Paste this into Code Arena (or any model with web access):
 Design a repeatable district tile for an end-game Cities: Skylines II city. Think about traffic, utilities and services. Zoning should include residential, commercial and office, no industry. I have all the DLC.
 
 Before you design anything, fetch and read these:
-- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/RULES.md
-- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.3.0/CATALOG.md, then the catalog files it lists that you need
+- Rules and layout format: https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.4.0/RULES.md
+- Asset catalog index (real in-game sizes): https://raw.githubusercontent.com/musterm4nn-alt/cs2/v3.4.0/CATALOG.md, then all three zones-roads files it lists (required), then the other catalog files you need
 
 Requirements:
 - The tile is exactly 200 × 200 cells (1.6 × 1.6 km). Set "bounds": {"w": 200, "h": 200} and "repeatable": true. Everything must fit inside.
@@ -18,7 +18,7 @@ Requirements:
 - Utilities that serve a whole city (power, water, sewage, garbage) may sit in the tile or be described as provided elsewhere. Say which.
 
 Present it as a single standalone index.html page. Define the layout as a JSON object in the page, load the validator with
-<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.3.0/validator.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/musterm4nn-alt/cs2@v3.4.0/validator.js"></script>
 and call CS2.mount(layout, element) so the page draws the layout to scale and shows the validator report. The finished page must show zero validator errors.
 
 Also explain on the page, briefly:
@@ -41,7 +41,11 @@ Also explain on the page, briefly:
 
 ## Changelog that affects comparisons
 
-- **v3.3.0 (frozen, record version):** new scoring. Battles are decided by fewer errors, then more points out of 100:
+- **v3.4.0 (frozen, record version):** the prompt, RULES.md and CATALOG.md now name all three required zones-roads
+  files and mark them as required (in round 7 a model read only two of them, because the short third one looked like
+  an optional track list). Rules, data and scoring are unchanged; catalog files and their END OF FILE lines are
+  identical. Results from v3.3.0 stay in their own record section.
+- **v3.3.0 (frozen):** new scoring. Battles are decided by fewer errors, then more points out of 100:
   capacity 25 (households/jobs from the game's zone factors, capped), balance 15 (jobs per household), services 25
   (coverage + capacity per household), traffic 20 (arterial frame, zoning on big roads, road lanes per household),
   cost 15 (upkeep per household), −3 per warning. Zoning more no longer wins on its own. Rules and data unchanged
