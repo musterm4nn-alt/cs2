@@ -11,7 +11,7 @@
   "carsMovingAvg": 2711,
   "personalCarsMovingAvg": 2182,
   "deliveryTrucksMovingAvg": 348,
-  "outsideTripShare": 0.2
+  "outsideTripShare": 0.3
  },
  "rates": {
   "workersPerResident": 0.203,
@@ -53,34 +53,34 @@
  ],
  "freeFlow": {
   "speedShare": {
-   "street": 0.731,
-   "alley": 0.511,
-   "highway": 0.865,
-   "ramp": 0.779
+   "street": 0.559,
+   "alley": 0.492,
+   "highway": 0.788,
+   "ramp": 0.645
   },
   "arriveS": {
-   "end": 0.19,
-   "signal": 0.79,
-   "major": 0.94,
-   "minor": 0,
-   "merge": 0.66,
-   "split": 1.15
+   "end": 0,
+   "signal": 3.41,
+   "major": 1.04,
+   "minor": 0.21,
+   "merge": 0.95,
+   "split": 1.56
   },
   "departS": {
-   "end": 0.66,
-   "signal": 2.22,
-   "major": 1.2,
-   "minor": 1.61,
-   "merge": 0.99,
-   "split": 0.69
+   "end": 0.03,
+   "signal": 2.43,
+   "major": 0.81,
+   "minor": 2.44,
+   "merge": 1.85,
+   "split": 0.94
   },
   "source": "Fitted by tools/sim/calibrate.js on the 980 road pieces of corwen_city.json where the game's cars were not queued"
  },
  "capacity": {
   "laneCapacityVps": 0.5,
   "highwayLaneCapacityVps": 0.5,
-  "junctionVps": 0.8,
-  "highwayJunctionVps": 1.5,
+  "junctionVps": 1.012,
+  "highwayJunctionVps": 0.395,
   "signalLostTime": 0.25,
   "minorApproachShare": 0.4,
   "mergeRampShare": 1,
@@ -88,38 +88,38 @@
  },
  "check": {
   "gameMeanFlowPct": 54,
-  "simMeanFlowPct": 58,
-  "roadCorrelation": 0.55,
-  "roadFlowRmsePct": 23.5,
-  "carSpeedRmsePct": 43.7,
+  "simMeanFlowPct": 54,
+  "roadCorrelation": 0.51,
+  "roadFlowRmsePct": 25.1,
+  "carSpeedRmsePct": 46.7,
   "outsideVps": {
    "game": 1.11,
-   "sim": 0.89
+   "sim": 1.03
   },
   "carTime": {
    "street": {
     "gameShare": 0.245,
-    "simShare": 0.56,
+    "simShare": 0.481,
     "gameSpeed": 0.408,
-    "simSpeed": 0.237
+    "simSpeed": 0.276
    },
    "alley": {
     "gameShare": 0.011,
-    "simShare": 0.022,
+    "simShare": 0.021,
     "gameSpeed": 0.432,
-    "simSpeed": 0.364
+    "simSpeed": 0.315
    },
    "highway": {
     "gameShare": 0.703,
-    "simShare": 0.355,
+    "simShare": 0.391,
     "gameSpeed": 0.194,
-    "simSpeed": 0.277
+    "simSpeed": 0.28
    },
    "ramp": {
     "gameShare": 0.041,
-    "simShare": 0.063,
+    "simShare": 0.108,
     "gameSpeed": 0.144,
-    "simSpeed": 0.159
+    "simSpeed": 0.102
    }
   }
  }

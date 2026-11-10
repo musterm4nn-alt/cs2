@@ -30,7 +30,6 @@ const CONFIG = {
   workOffsetDays: 10922 / 262144,                    // WorkerSystem.GetWorkOffset: ±1 game hour per citizen
   trafficReduction: P.trafficReduction,              // EconomyParameters.m_TrafficReduction (0.0005), for the city-size gates
   parkingSearchM: P.maxParkingSearchDistanceM,       // 150 m: cars park within this distance of a pedestrian-only lot
-  flowSmoothingS: 68,                                // TrafficFlowSystem: lerp 0.125 per update ≈ 68 s time constant
   pathRandom: [0.5, 1.0],                            // PathUtils.CalculateCost: target cost × random(0.5, 1)
   // --- trip rates and base driving speeds: measured in the game, see calibration/calibration.json ---
   // --- capacities: defaults here, replaced by the values fitted to the game's queues (calibration.json "capacity",
@@ -48,8 +47,6 @@ const CONFIG = {
   vehicleSpacingM: 7.5,                              // jam density (storage per lane)
   localTruckShare: 0.8,                             // where the area has industry: share of truck trips that start there
   otherToOutsideShare: 0.15,                         // 'other' car trips leaving the area (moving away etc.)
-  stuckDespawnS: 600,                                // a car blocked this long at the head of a queue is removed
-  squeezeAfterS: 60,                                 // a car blocked this long may squeeze onto a full road (deadlock breaking)
   lotChunkCells: 6,                                 // zone blocks are split into lots of up to 6×6 cells
   driveSpacingCells: 2,                              // driveways closer than this on one road share an access node
 };
@@ -289,9 +286,12 @@ function junctionControl(nodes, links) {
     n.control = allHighway ? (n.inn.length > 1 ? 'merge' : 'split') : tlRoads.size >= 1 ? 'signal' : 'priority';  // CompositionSelectSystem: any PreferTrafficLights road, 3+ roads
     if (n.control !== 'priority') setRoles(n.control);
     if (n.control === 'split') return;
-    // major axis: the approach with most lanes and the approach most opposite to it
+    // major axis: the biggest approach (lanes, then speed limit); among equals, a road that goes straight on through
+    // the junction beats one that ends there (the stem of a T-junction gives way)
     const heading = (id) => { const l = links[id]; return Math.atan2(l.p1[1] - l.p0[1], l.p1[0] - l.p0[0]); };
-    const inn = n.inn.slice().sort((a, b) => links[b].lanes - links[a].lanes);
+    const through = (id) => n.out.some((o) => links[o].to !== links[id].from && Math.cos(heading(o) - heading(id)) > 0.7);
+    const rank = (id) => links[id].lanes * 1e4 + links[id].vmax * 10 + (through(id) ? 1 : 0);
+    const inn = n.inn.slice().sort((a, b) => rank(b) - rank(a));
     const main = inn[0], h0 = heading(main);
     // approaches along the same line (driving the same or the opposite way) share a green phase / the major road
     const axisA = new Set([main]);
@@ -560,44 +560,68 @@ function runSim(g, lots, ctx, opts) {
 
   // ---------------------------------------------------------------- dynamic simulation (1 s steps, game clock)
   const days = opts.days || 3, measureDay = days - 1, dt = 1;
-  const L = links.length;
+  const L = links.length, NN = nodes.length;
   const q = links.map(() => []);                     // vehicles on each link in FIFO order: [veh, ...]
-  const credit = new Float64Array(L).fill(1);
-  const flowEma = new Float64Array(L).fill(1);       // smoothed speed ratio (game: LaneFlow -> m_FlowOffset)
-  const winDist = new Float64Array(L), winDur = new Float64Array(L);
-  const NB = 4, roadDist = new Float64Array(g.roads * NB), roadDur = new Float64Array(g.roads * NB), roadVol = new Float64Array(g.roads);
-  const linkVol = new Float64Array(L), linkMaxQ = new Float64Array(L), nodeWaitS = new Float64Array(nodes.length), nodeMaxQ = new Float64Array(nodes.length);
+  const credit = new Float64Array(L).fill(1), creditT = new Float64Array(L);   // discharge credit, and when it was last topped up
+  const act = [], inAct = new Uint8Array(L), ready = new Int32Array(L);        // links with cars on them; links with a car at the end
+  // Lane flow as in the game (TrafficFlowSystem): every car adds its driving time × speed limit and its distance to
+  // the road it is on, all the time (also while it stands in a queue). 32 times a day the sums of the last interval
+  // are blended into four time-of-day bins (lerp 0.125 × the bin's weight at that time), so a bin remembers several
+  // days. The pathfinder's speed on a road is limit × flow of the bins at the current time; the reported flow of a
+  // road is the same sums over the measured day.
+  const NB = 4, TICKS = 32, TICK = DAY / TICKS;
+  const nTime = new Float64Array(L), nDist = new Float64Array(L);              // this interval: car seconds and metres per link
+  const fDur = new Float64Array(L * NB), fDist = new Float64Array(L * NB), flowP = new Float64Array(L).fill(1);
+  const roadDist = new Float64Array(g.roads * NB), roadDur = new Float64Array(g.roads * NB);
+  const linkVol = new Float64Array(L), linkStuck = new Float64Array(L), linkMaxQ = new Float64Array(L), nodeWaitS = new Float64Array(NN), nodeMaxQ = new Float64Array(NN);
   const series = [], byClass = {};
   const roadTime = new Float64Array(g.roads), roadDistAll = new Float64Array(g.roads), roadDurVAll = new Float64Array(g.roads);
   const stats = { trips: 0, done: 0, walked: 0, despawned: 0, noPath: 0, byPurpose: {}, commuteS: [], tripS: [], spawnWaitS: 0, unfinished: 0 };
-  // route search per trip, like the game's pathfinder: road cost = length / (speed limit × measured flow), refreshed
-  // every game hour, and every road the search expands gets its own random factor 0.5–1 for this trip
-  // (PathfindJobs.AddConnections), which spreads traffic over alternative routes
+  // route search per trip, like the game's pathfinder: road cost = length / (speed limit × measured flow), and every
+  // road the search expands gets its own random factor 0.5–1 for this trip (PathfindJobs.AddConnections), which
+  // spreads traffic over alternative routes
   const cost = ff.slice();
-  let costEpoch = -1;
-  const NN = nodes.length, rDist = new Float64Array(NN), rPred = new Int32Array(NN), rSeen = new Int32Array(NN), rDone = new Int32Array(NN);
+  const rDist = new Float64Array(NN), rPred = new Int32Array(NN), rSeen = new Int32Array(NN), rDone = new Int32Array(NN);
   let rEpoch = 0;
-  function routeFor(o, dst, now) {
-    const ep = Math.floor(now / HOUR);
-    if (ep !== costEpoch) { costEpoch = ep; for (let i = 0; i < L; i++) cost[i] = links[i].lenM / (links[i].vmax * Math.max(0.05, flowEma[i])); }
-    const e = ++rEpoch, h = new Heap();
-    rDist[o] = 0; rSeen[o] = e; rPred[o] = -1; h.push(0, o);
-    while (h.size) {
-      const u = h.pop();
+  // the graph as flat arrays (out-links of node n: outLink[outStart[n] .. outStart[n + 1]]) and a reusable binary heap
+  const outStart = new Int32Array(NN + 1), outLink = new Int32Array(L), linkTo = new Int32Array(L), linkFrom = new Int32Array(L);
+  for (let n = 0, k = 0; n < NN; n++) { const o = nodes[n].out; for (let i = 0; i < o.length; i++) outLink[k++] = o[i]; outStart[n + 1] = k; }
+  for (let i = 0; i < L; i++) { linkTo[i] = links[i].to; linkFrom[i] = links[i].from; }
+  const hK = new Float64Array(L + 2), hV = new Int32Array(L + 2);
+  const rnd0 = CONFIG.pathRandom[0], rndW = CONFIG.pathRandom[1] - CONFIG.pathRandom[0];
+  function routeFor(o, dst) {
+    const e = ++rEpoch;
+    let hn = 1;
+    rDist[o] = 0; rSeen[o] = e; rPred[o] = -1; hK[0] = 0; hV[0] = o;
+    while (hn > 0) {
+      // pop the nearest node
+      const u = hV[0];
+      hn--;
+      if (hn > 0) {
+        const lk = hK[hn], lv = hV[hn];
+        let i = 0;
+        for (;;) { let c = 2 * i + 1; if (c >= hn) break; if (c + 1 < hn && hK[c + 1] < hK[c]) c++; if (hK[c] >= lk) break; hK[i] = hK[c]; hV[i] = hV[c]; i = c; }
+        hK[i] = lk; hV[i] = lv;
+      }
       if (rDone[u] === e) continue;
       rDone[u] = e;
       if (u === dst) break;
-      const du = rDist[u], out = nodes[u].out;
-      for (let i = 0; i < out.length; i++) {
-        const id = out[i], v = links[id].to;
+      const du = rDist[u];
+      for (let j = outStart[u], je = outStart[u + 1]; j < je; j++) {
+        const id = outLink[j], v = linkTo[id];
         if (rDone[v] === e) continue;
-        const nd = du + cost[id] * (CONFIG.pathRandom[0] + R() * (CONFIG.pathRandom[1] - CONFIG.pathRandom[0]));
-        if (rSeen[v] !== e || nd < rDist[v]) { rSeen[v] = e; rDist[v] = nd; rPred[v] = id; h.push(nd, v); }
+        const nd = du + cost[id] * (rnd0 + R() * rndW);
+        if (rSeen[v] !== e || nd < rDist[v]) {
+          rSeen[v] = e; rDist[v] = nd; rPred[v] = id;
+          let i = hn++;
+          while (i > 0) { const p = (i - 1) >> 1; if (hK[p] <= nd) break; hK[i] = hK[p]; hV[i] = hV[p]; i = p; }
+          hK[i] = nd; hV[i] = v;
+        }
       }
     }
     if (rDone[dst] !== e) return [];
     const p = [];
-    for (let n = dst; rPred[n] >= 0 && n !== o; n = links[rPred[n]].from) p.push(rPred[n]);
+    for (let n = dst; rPred[n] >= 0 && n !== o; n = linkFrom[rPred[n]]) p.push(rPred[n]);
     return p.reverse();
   }
   // departures, ordered by time
@@ -608,7 +632,7 @@ function runSim(g, lots, ctx, opts) {
     const base = d * DAY;
     const commute = (w, purpose) => {
       const o = w.outside ? w.oNode : w.home;
-      const tt = w.last != null ? w.last : (tff(o, w.job) || 60) + 30;
+      const free = tff(o, w.job), tt = w.last != null ? w.last : (free > 0 && isFinite(free) ? free : 60) + 30;
       let dep = w.start - tt; if (dep < 0) dep += DAY;
       plan(base + dep, o, w.job, purpose, { worker: w, ret: base + (w.end > w.start ? w.end : w.end + DAY) });
     };
@@ -657,8 +681,10 @@ function runSim(g, lots, ctx, opts) {
     }
   }
   const waiting = nodes.map(() => []);               // cars waiting to enter the network at their origin
+  const wNodes = [], inW = new Uint8Array(NN);       // nodes with waiting cars
   let active = 0;
   const binW = (tod) => { const x = tod / DAY * 4; return [Math.max(0, Math.max(x - 3, 1 - x)), Math.max(0, 1 - Math.abs(x - 1)), Math.max(0, 1 - Math.abs(x - 2)), Math.max(0, 1 - Math.abs(x - 3))]; };
+  const measureFrom = measureDay * DAY;
 
   // where a trip returns to: home, or out of the area through an exit when it came in from outside
   function back(e) { const o = e.worker && !e.worker.outside ? e.worker.home : e.origin; return isGate.has(o) ? pickExit() : o; }
@@ -672,31 +698,37 @@ function runSim(g, lots, ctx, opts) {
       else if (e.dwell) plan(now + e.dwell + 60, e.dest, back(e), 'home');
       return;
     }
-    const route = routeFor(e.origin, e.dest, now);
+    const route = routeFor(e.origin, e.dest);
     if (!route.length || links[route[0]].from !== e.origin) { if (measuring) stats.noPath++; return; }
-    const v = { route, k: 0, t0: now, tIn: now, tEnd: 0, e, measuring, head: 0 };
+    const v = { route, k: 0, t0: now, tIn: now, tEnd: 0, tAcc: now, e, measuring, head: 0 };
     waiting[e.origin].push(v);
+    if (!inW[e.origin]) { inW[e.origin] = 1; wNodes.push(e.origin); }
   }
-  function enter(v, l, now) {
-    const lk = links[l], n = q[l].length;
+  // a car enters link l at time t (t can lie inside the current step: a car that was not held up carries its exact
+  // arrival time over, so short roads are not rounded up to whole seconds)
+  function enter(v, l, t) {
+    const lk = links[l], Q = q[l], n = Q.length;
     // free driving at the measured base speed; congestion comes from queues at the end of the road (capacity, storage,
     // junction shares), so the speed is not reduced again for density
-    const speed = lk.vmax * lk.base;
-    const prev = n ? q[l][n - 1].tEnd : 0;
-    v.tIn = now; v.tEnd = Math.max(now + lk.lenM / speed + lk.endDelay, prev + 1 / lk.capLink);
-    q[l].push(v); v.head = 0;
+    const prev = n ? Q[n - 1].tEnd : 0;
+    v.tIn = t; v.tAcc = t; v.tEnd = Math.max(t + lk.lenM / (lk.vmax * lk.base) + lk.endDelay, prev + 1 / lk.capLink);
+    Q.push(v); v.head = 0;
+    if (!inAct[l]) { inAct[l] = 1; act.push(l); }
     if (v.measuring) linkVol[l]++;
   }
-  function leaveLink(v, l, now) {
-    const lk = links[l], dur = Math.max(1e-3, now - v.tIn);
-    winDist[l] += lk.lenM; winDur[l] += dur * lk.vmax;
-    if (Math.floor(now / DAY) === measureDay) {
-      const w = binW(now % DAY), r = lk.road;
-      for (let b = 0; b < NB; b++) { roadDist[r * NB + b] += w[b] * lk.lenM; roadDur[r * NB + b] += w[b] * dur * lk.vmax; }
-      roadVol[r] += 1; roadTime[r] += dur; roadDistAll[r] += lk.lenM; roadDurVAll[r] += dur * lk.vmax;
-      const c = byClass[lk.cls] || (byClass[lk.cls] = { time: 0, dist: 0, durV: 0 });
-      c.time += dur; c.dist += lk.lenM; c.durV += dur * lk.vmax;
-    }
+  // add a car's time and distance on link l since it was last counted, up to time t: it covers the link evenly until
+  // it reaches the end (tEnd) and stands after that
+  function account(v, l, t) {
+    const a = v.tAcc;
+    if (t <= a) return;
+    const span = v.tEnd - v.tIn;
+    nTime[l] += t - a;
+    if (a < v.tEnd) nDist[l] += span > 0 ? links[l].lenM * (Math.min(t, v.tEnd) - a) / span : links[l].lenM;
+    v.tAcc = t;
+  }
+  function leaveLink(v, l, t) {
+    account(v, l, t);
+    if (t > measureFrom && t > v.tEnd) nodeWaitS[links[l].to] += t - Math.max(v.tEnd, measureFrom);
   }
   function arrive(v, now) {
     active--;
@@ -708,17 +740,67 @@ function runSim(g, lots, ctx, opts) {
       plan(ret, e.dest, back(e), 'home');
     } else if (e.dwell) plan(now + e.dwell, e.dest, back(e), 'home');
   }
+  // StuckMovingObjectSystem: the game follows who blocks whom from every car that can't move. If the chain never
+  // reaches a car that can move (it comes back to the car, or runs into a loop further on: 100 blocked cars in a
+  // row), the car is taken off the road (parked at home, its trip ends). A long queue that still moves at its front
+  // is not stuck. Here: the first car of link l can't enter the full link nx; the cars on a full link stand if none
+  // of its front cars can move on either.
+  const seenAt = new Int32Array(L); let seenEpoch = 0;
+  function isStuck(l, nx, now) {
+    const ep = ++seenEpoch;
+    seenAt[l] = ep;
+    for (let cur = nx; ;) {
+      if (seenAt[cur] === ep) return true;
+      seenAt[cur] = ep;
+      const Q = q[cur], lanes = links[cur].lanes;
+      let next = -1;
+      for (let i = 0; i < Q.length && i < lanes; i++) {
+        const v = Q[i];
+        if (v.tEnd > now || v.k + 1 >= v.route.length) return false;       // still driving, or arriving
+        const n2 = v.route[v.k + 1];
+        if (q[n2].length < links[n2].store) return false;                  // it can move on
+        if (next < 0) next = n2;
+      }
+      if (next < 0) return false;
+      cur = next;
+    }
+  }
+  // the end of flow interval k at time t: blend the interval into the time-of-day bins, refresh the pathfinder's costs
+  function flowTick(t, k) {
+    for (let a = 0; a < act.length; a++) { const l = act[a], Q = q[l]; for (let i = 0; i < Q.length; i++) account(Q[i], l, t); }
+    const tf = binW(t % DAY), measuring = Math.floor((k - 1) / TICKS) === measureDay;
+    for (let l = 0; l < L; l++) {
+      const lk = links[l], time = nTime[l], dist = nDist[l], durV = time * lk.vmax;
+      let p = 0;
+      for (let b = 0; b < NB; b++) {
+        const j = l * NB + b, w = 0.125 * tf[b];
+        fDur[j] += w * (durV - fDur[j]); fDist[j] += w * (dist - fDist[j]);
+        if (tf[b] > 0) p += tf[b] * (fDur[j] > 0 ? Math.min(1, fDist[j] / fDur[j]) : 1);
+      }
+      flowP[l] = p;
+      cost[l] = lk.lenM / (lk.vmax * Math.max(1 / 256, p));        // PathUtils.CalculateSpeed: limit × (1 − flow offset / 256)
+      if (!time) continue;
+      if (measuring) {
+        const r = lk.road;
+        for (let b = 0; b < NB; b++) { roadDist[r * NB + b] += tf[b] * dist; roadDur[r * NB + b] += tf[b] * durV; }
+        roadTime[r] += time; roadDistAll[r] += dist; roadDurVAll[r] += durV;
+        const c = byClass[lk.cls] || (byClass[lk.cls] = { time: 0, dist: 0, durV: 0 });
+        c.time += time; c.dist += dist; c.durV += durV;
+      }
+      nTime[l] = 0; nDist[l] = 0;
+    }
+  }
 
-  const order2 = new Int32Array(L).map((_, i) => i);
-  const T = days * DAY;
+  const T = days * DAY, lastTick = TICKS * days;
   planDay(0);
-  let nextDay = 1;
+  let nextDay = 1, tick = 1;
   for (let now = 0; now < T; now += dt) {
     if (now >= nextDay * DAY - 6 * HOUR && nextDay < days) { planDay(nextDay); nextDay++; }  // a little early: night-shift departures
+    if (tick < lastTick && now >= tick * TICK) { flowTick(tick * TICK, tick); tick++; }
     while (events.size && events.k[0] <= now) depart(events.pop(), now);
     // spawn waiting cars into their first link
-    for (let n = 0; n < nodes.length; n++) {
-      const w = waiting[n];
+    for (let a = 0; a < wNodes.length;) {
+      const n = wNodes[a], w = waiting[n];
       for (let i = 0; i < w.length && i < 4;) {      // a lot's cars leave in order, but a car turning the other way isn't held up
         const v = w[i], l = v.route[0];
         if (q[l].length >= links[l].store) { i++; continue; }
@@ -726,63 +808,61 @@ function runSim(g, lots, ctx, opts) {
         if (v.measuring) stats.spawnWaitS += now - v.t0;
         enter(v, l, now);
       }
+      if (w.length) a++; else { inW[n] = 0; wNodes[a] = wNodes[wNodes.length - 1]; wNodes.pop(); }
     }
-    // move vehicles across nodes, links in random order
-    for (let i = L - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); const x = order2[i]; order2[i] = order2[j]; order2[j] = x; }
-    for (let ii = 0; ii < L; ii++) {
-      const l = order2[ii], Q = q[l];
-      credit[l] = Math.min(credit[l] + links[l].cap * dt, Math.max(1, links[l].cap * dt));
+    // links whose first car has reached the end, in random order
+    let nr = 0;
+    for (let a = 0; a < act.length;) {
+      const l = act[a], Q = q[l];
+      if (!Q.length) { inAct[l] = 0; act[a] = act[act.length - 1]; act.pop(); continue; }
+      if (Q[0].tEnd <= now) ready[nr++] = l;
+      a++;
+    }
+    for (let i = nr - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); const x = ready[i]; ready[i] = ready[j]; ready[j] = x; }
+    const measuring = now >= measureFrom;
+    // move vehicles across nodes
+    for (let ii = 0; ii < nr; ii++) {
+      const l = ready[ii], Q = q[l], lk = links[l];
+      credit[l] = Math.min(credit[l] + lk.cap * (now - creditT[l]), Math.max(1, lk.cap * dt)); creditT[l] = now;
       // one car per lane can be at the front: a car waiting to turn into a full road blocks its lane, not the whole road
-      const lanes = links[l].lanes;
+      const lanes = lk.lanes;
       let i = 0, blocked = 0;
       while (i < Q.length && blocked < lanes && Q[i].tEnd <= now) {
-        const v = Q[i];
-        if (v.k + 1 >= v.route.length) { Q.splice(i, 1); leaveLink(v, l, now); arrive(v, now); continue; }
+        const v = Q[i], t = v.tEnd > now - dt ? v.tEnd : now;       // when it leaves: on time, or held up until this step
+        if (v.k + 1 >= v.route.length) { Q.splice(i, 1); leaveLink(v, l, t); arrive(v, now); continue; }
         if (credit[l] < 1) break;
         const nx = v.route[v.k + 1];
-        // StuckMovingObjectSystem: cars in a blocking loop are told to make space; here a car blocked for a while may
-        // squeeze onto the full road ahead (one extra car per lane), which breaks gridlock loops
-        const room = v.head >= CONFIG.squeezeAfterS ? links[nx].store + links[nx].lanes : links[nx].store;
-        if (q[nx].length >= room) {
-          v.head += dt;
-          if (v.head >= CONFIG.stuckDespawnS) { Q.splice(i, 1); leaveLink(v, l, now); active--; if (v.measuring) stats.despawned++; continue; }
-          blocked++; i++; continue;
+        if (q[nx].length >= links[nx].store) {
+          if (isStuck(l, nx, now)) { Q.splice(i, 1); leaveLink(v, l, now); active--; if (v.measuring) stats.despawned++; if (measuring) linkStuck[l]++; continue; }
+          v.head += dt; blocked++; i++; continue;
         }
         credit[l] -= 1;
-        Q.splice(i, 1); leaveLink(v, l, now);
-        v.k++; enter(v, nx, now);
+        Q.splice(i, 1); leaveLink(v, l, t);
+        v.k++; enter(v, nx, t);
+      }
+      // the queue left at the junction
+      if (measuring) {
+        let w = 0;
+        while (w < Q.length && Q[w].tEnd <= now) w++;
+        if (w > linkMaxQ[l]) linkMaxQ[l] = w;
+        if (w > nodeMaxQ[lk.to]) nodeMaxQ[lk.to] = w;
       }
     }
-    // waiting time at junctions: cars that reached the end of their link but couldn't leave
-    if (Math.floor(now / DAY) === measureDay) {
-      for (let l = 0; l < L; l++) {
-        const Q = q[l]; let w = 0;
-        for (let i = 0; i < Q.length && Q[i].tEnd <= now; i++) w++;
-        if (w) { nodeWaitS[links[l].to] += w * dt; if (w > linkMaxQ[l]) linkMaxQ[l] = w; if (w > nodeMaxQ[links[l].to]) nodeMaxQ[links[l].to] = w; }
-      }
-    }
-    // smoothed flow per link (what the pathfinder sees), every 8 s like TrafficFlowSystem
-    if (now % 8 === 0) {
-      const a = 1 - Math.exp(-8 / CONFIG.flowSmoothingS);
-      for (let l = 0; l < L; l++) {
-        // cars still on the link count with the time they have spent so far
-        let dist = winDist[l], dur = winDur[l];
-        const Q = q[l];
-        for (let i = 0; i < Q.length; i++) { const v = Q[i]; if (now - v.tIn > links[l].lenM / links[l].vmax) { dist += links[l].lenM * 0.5; dur += (now - v.tIn) * links[l].vmax * 0.5; } }
-        const r = dur > 0 ? Math.min(1, dist / dur) : 1;
-        flowEma[l] += a * (r - flowEma[l]); winDist[l] = 0; winDur[l] = 0;
-      }
-    }
-    if (now % 30 === 0 && Math.floor(now / DAY) === measureDay) {
+    if (now % 30 === 0 && measuring) {
       let onRoad = 0, waitingN = 0; const byP = {};
-      for (let l = 0; l < L; l++) { onRoad += q[l].length; for (const v of q[l]) byP[v.e.purpose] = (byP[v.e.purpose] || 0) + 1; }
-      for (let n = 0; n < nodes.length; n++) waitingN += waiting[n].length;
-      let fl = 0; for (let l = 0; l < L; l++) fl += flowEma[l];
+      for (let a = 0; a < act.length; a++) { const Q = q[act[a]]; onRoad += Q.length; for (let i = 0; i < Q.length; i++) { const p = Q[i].e.purpose; byP[p] = (byP[p] || 0) + 1; } }
+      for (let a = 0; a < wNodes.length; a++) waitingN += waiting[wNodes[a]].length;
+      let fl = 0; for (let l = 0; l < L; l++) fl += flowP[l];
       series.push({ t: now % DAY, onRoad, waiting: waitingN, flow: L ? fl / L : 1, byPurpose: byP });
     }
   }
-  for (let n = 0; n < nodes.length; n++) stats.unfinished += waiting[n].filter((v) => v.measuring).length;
-  for (let l = 0; l < L; l++) stats.unfinished += q[l].filter((v) => v.measuring).length;
+  while (tick <= lastTick) { flowTick(tick === lastTick ? T : tick * TICK, tick); tick++; }
+  for (let n = 0; n < NN; n++) stats.unfinished += waiting[n].filter((v) => v.measuring).length;
+  for (let l = 0; l < L; l++) {
+    stats.unfinished += q[l].filter((v) => v.measuring).length;
+    // cars still queued at the end count with the time they have waited so far
+    q[l].forEach((v) => { if (v.tEnd < T) nodeWaitS[links[l].to] += T - Math.max(v.tEnd, measureFrom); });
+  }
 
   // ---------------------------------------------------------------- results
   const roadFlow = new Float64Array(g.roads);
@@ -849,7 +929,7 @@ function runSim(g, lots, ctx, opts) {
   }
   // per road over the whole measured day: car time (s) and speed / limit, car-weighted (what the probe samples)
   const roadSpeed = Array.from(roadTime, (t, r) => (roadDurVAll[r] > 0 ? roadDistAll[r] / roadDurVAll[r] : null));
-  out._draw = { occ: q.map((x) => x.length), headNext: q.map((x) => (x.length && x[0].k + 1 < x[0].route.length ? x[0].route[x[0].k + 1] : -1)), headWait: q.map((x) => (x.length ? x[0].head : 0)), links, linkFlow, linkVol, linkMaxQ, nodes, lots, series, result: ctx.result, layout: ctx.layout, junctions, roadFlow, roadTime, roadSpeed, gates: [...isGate] };
+  out._draw = { occ: q.map((x) => x.length), headNext: q.map((x) => (x.length && x[0].k + 1 < x[0].route.length ? x[0].route[x[0].k + 1] : -1)), headWait: q.map((x) => (x.length ? x[0].head : 0)), links, linkFlow, linkVol, linkStuck, linkMaxQ, nodes, lots, series, result: ctx.result, layout: ctx.layout, junctions, roadFlow, roadTime, roadSpeed, gates: [...isGate] };
   return out;
 }
 
@@ -945,7 +1025,7 @@ ${row(['Workers with a job in the tile / unemployed / commuting in', `${pp.worke
 ${row(['Pupils with a school seat / without', `${pp.pupils.toLocaleString('en')} / ${pp.withoutSchool.toLocaleString('en')}`])}
 ${row(['Trips on the measured day', `${tr.total.toLocaleString('en')} (${tr.byCar.toLocaleString('en')} by car, ${tr.walked.toLocaleString('en')} walked)`])}
 ${row(['By purpose', purpose])}
-${row(['Car trips removed after being stuck 10 min', `${tr.despawned.toLocaleString('en')} (${r.despawnedPct}%)`])}
+${row(['Car trips taken off the road as stuck (in a gridlock loop)', `${tr.despawned.toLocaleString('en')} (${r.despawnedPct}%)`])}
 ${row(['Average wait before a car can leave its lot', r.meanSpawnWaitMin + ' min'])}
 </tbody></table>
 <h2>Worst roads</h2><div class="wrap"><table><thead><tr><th>Road</th><th>Type</th><th>Flow</th><th>Cars/day</th><th>Longest queue</th></tr></thead><tbody>

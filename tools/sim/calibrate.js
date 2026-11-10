@@ -29,7 +29,7 @@ const opt = (k, d) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : d; };
 const cityFile = opt('--city', path.join(__dirname, 'calibration', 'corwen_city.json'));
 const driveFile = opt('--drive', path.join(__dirname, 'calibration', 'corwen_drive.json'));
 const quick = a.includes('--quick');
-const DAYS = 2;
+const DAYS = 3;   // two days to settle (the pathfinder's flow memory spans days), the third is compared
 const city = JSON.parse(fs.readFileSync(cityFile, 'utf8'));
 const drive = fs.existsSync(driveFile) ? JSON.parse(fs.readFileSync(driveFile, 'utf8')) : null;
 const DAY = 262144 / 60;
@@ -83,10 +83,15 @@ function evaluate(cap, outsideShare, freeFlow) {
   // the game's traffic is steady (cars on the move stay within its measured range); a simulation that keeps
   // piling up cars beyond the game's peak is overloaded
   const peakErr = gamePeak ? Math.max(0, Math.log(Math.max(1, o.result.peakOnRoad) / gamePeak)) : 0;
-  const J = flowRmse + 2 * biasErr + (drive ? speedRmse + 0.5 * shareErr + 0.5 * carsErr + peakErr : 0) + 0.25 * outsideErr;
-  return { J, flowRmse, speedRmse, shareErr, outsideErr, biasErr, carsErr, peakErr, simOutside, o };
+  // cars the simulator takes off the road as stuck (gridlock loops, endless queues): the measured city ran steadily,
+  // so a fit that relies on removing cars is penalised
+  const stuckErr = o.result.despawnedPct / 100;
+  // the measured day must be steady: as many cars on the road at its end as at its start
+  const ser = d.series, growErr = ser.length > 1 ? Math.max(0, Math.log(Math.max(1, ser[ser.length - 1].onRoad) / Math.max(1, ser[0].onRoad))) : 0;
+  const J = flowRmse + 2 * biasErr + (drive ? speedRmse + 0.5 * shareErr + 0.5 * carsErr + peakErr : 0) + 0.25 * outsideErr + 2 * stuckErr + growErr;
+  return { J, flowRmse, speedRmse, shareErr, outsideErr, biasErr, carsErr, peakErr, stuckErr, growErr, simOutside, o };
 }
-const fmt = (e) => `J ${e.J.toFixed(3)} · road flow rmse ${(e.flowRmse * 100).toFixed(1)} · car speed rmse ${(e.speedRmse * 100).toFixed(1)} · car time by class off by ${(e.shareErr * 50).toFixed(0)}% · cars ${e.o.compare.carsOnRoads}/${gameCars ? Math.round(gameCars) : '-'} · outside ${e.simOutside.toFixed(2)}/${gameOutside.toFixed(2)} veh/s · mean flow ${e.o.compare.simMeanFlowPct}/${e.o.compare.gameMeanFlowPct}% corr ${e.o.compare.correlation} · peak ${e.o.result.peakOnRoad}/${gamePeak || "-"} · done ${e.o.result.completedPct}%`;
+const fmt = (e) => `J ${e.J.toFixed(3)} · road flow rmse ${(e.flowRmse * 100).toFixed(1)} · car speed rmse ${(e.speedRmse * 100).toFixed(1)} · car time by class off by ${(e.shareErr * 50).toFixed(0)}% · stuck ${e.o.result.despawnedPct}% · growth ${(e.growErr * 100).toFixed(0)}% · cars ${e.o.compare.carsOnRoads}/${gameCars ? Math.round(gameCars) : '-'} · outside ${e.simOutside.toFixed(2)}/${gameOutside.toFixed(2)} veh/s · mean flow ${e.o.compare.simMeanFlowPct}/${e.o.compare.gameMeanFlowPct}% corr ${e.o.compare.correlation} · peak ${e.o.result.peakOnRoad}/${gamePeak || "-"} · done ${e.o.result.completedPct}%`;
 
 // ---------------------------------------------------------------- free-driving model (fit in flow space)
 const fnames = CLASSES.map((c) => 's:' + c).concat(ROLES.map((r) => 'in:' + r), ROLES.map((r) => 'out:' + r));

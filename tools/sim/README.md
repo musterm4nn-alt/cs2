@@ -9,7 +9,7 @@ node tools/sim/simulate.js path/to/model-page.html                     # a model
 node tools/sim/simulate.js --all tools/calibration/layouts             # one line per layout, a report for each
 ```
 
-Options: `--days 3` (simulated days, the last one is reported), `--seed 1`, `--city-km2 16`, `--json`,
+Options: `--days 3` (simulated days, the last one is reported; the first two let traffic settle), `--seed 1`, `--city-km2 16`, `--json`,
 `--city <exported city>.json` (run a city exported from the game and compare it with the game; writes
 tools/sim/out/<city>.html with simulator and game flow maps; see Calibration).
 
@@ -34,10 +34,13 @@ tools/sim/out/<city>.html with simulator and game flow maps; see Calibration).
    simulated in 1-second steps. Between junctions cars drive at a measured share of the speed limit; where a road
    arrives at or leaves a junction they lose a measured time that depends on the kind of road end. Each road has a
    lane capacity and a storage of one car per 7.5 m of lane; an approach discharges into a junction at the junction's
-   capacity per lane times its share (signal phases, or priority for the major road); queues spill back. Every trip searches its own route the way the
-   game's pathfinder does: road cost = length / (speed limit × measured flow), and every road the search looks at
-   gets its own random factor 0.5–1 for that trip, which spreads traffic over alternative routes. A car blocked at the
-   front of a queue for 10 minutes is removed (counted as "stuck").
+   capacity per lane times its share (signal phases, or priority for the major road: the bigger road, and among
+   equals the one that goes straight on); queues spill back. Every trip searches its own route the way the game's
+   pathfinder does: road cost = length / (speed limit × remembered flow), and every road the search looks at gets its
+   own random factor 0.5–1 for that trip, which spreads traffic over alternative routes. The remembered flow is the
+   game's: four time-of-day values per road, blended 32 times a day, so it carries over several days. A car in a
+   gridlock loop (the chain of cars blocking each other never reaches one that can move) is taken off the road, as
+   the game does; these trips are counted as "stuck".
 6. **Result.** The headline is the game's own **traffic flow %**: for each road, the distance driven divided by the
    distance that could have been driven at the speed limit in the same time, averaged over four times of day, then
    averaged over all roads (`TrafficFlowSystem`). The report also shows trips completed, the median commute, waiting
@@ -56,7 +59,8 @@ From the decompiled game code (`Game.dll`, game version 1.6.2) and prefab data:
 | Lights run short phases (about 6 s of green, longer while cars keep coming) with a change-over between groups | `TrafficLightSystem` |
 | Lanes per direction, speed limits | road prefabs (default sections) |
 | Route search: cost = length / (limit × measured flow), each road × random 0.5–1 per trip; targets × random 0.5–1 | `PathUtils.CalculateSpeed`, `PathfindJobs.AddConnections`, `TrafficFlowSystem` |
-| Gridlock loops are broken (cars make space) | `StuckMovingObjectSystem` |
+| Flow memory: per lane, driving time × limit and distance, blended 32× a day into four time-of-day values (lerp 0.125); pathfinder speed = limit × that flow | `TrafficFlowSystem`, `PathUtils.CalculateSpeed` |
+| A car whose chain of blockers comes back to itself (or is 100 blocked cars long) is parked at home and its trip ends | `StuckMovingObjectSystem`, `PersonalCarAISystem` |
 | Traffic flow metric (speed against min(the car's top speed, the limit)) | `TrafficFlowSystem`, `CarNavigationSystem.ApplySideEffects` |
 
 Measured in the real game (`calibration/`, see below): car trips per household / worker / resident for every
@@ -103,31 +107,36 @@ What the probe shows about Corwen:
 
 `node tools/sim/calibrate.js` fits the capacities, the outside share and the free-driving model so that the
 simulator reproduces, on the same city, the game's flow on every road piece and its average, the cars' speed on every
-road piece, where the cars spend their time, how many cars are on the road (without exceeding the game's peak), and
-the traffic through the outside connections. Free driving is fitted only on the 980 road pieces where the game's cars
-were not queued. The result (`node tools/sim/simulate.js --city tools/sim/calibration/corwen_city.json --days 2`,
-seeds 1–5):
+road piece, where the cars spend their time, how many cars are on the road (steady over the measured day, without
+exceeding the game's peak), and the traffic through the outside connections, while taking few cars off the road as
+stuck. Free driving is fitted only on the 980 road pieces where the game's cars were not queued. Each run simulates
+three days and compares the third. The result
+(`node tools/sim/simulate.js --city tools/sim/calibration/corwen_city.json`, seeds 1–5):
 
-| | Game | Simulator before (Nov 6) | Simulator now |
-|---|---|---|---|
-| Average flow over all road pieces | 54 % | 49 % | 56–58 % |
-| Highways / two-lane roads / alleys | 62 / 48 / 44 % | 46 / 49 / 54 % | 65–67 / 46–50 / 50 % |
-| Road-by-road correlation | 0.97 (with itself, 48 h later) | 0.29 | 0.44–0.55 |
-| Road-by-road difference (rms) | 6.8 points (with itself) | | 23–24 points |
-| Cars on road pieces, average / peak | 2,490 / 3,646 | | 1,980–2,770 / 3,440–4,650 |
-| Car time on highways / streets | 70 / 25 % | | 28–36 / 56–65 % |
-| Traffic through the outside connections | 1.1 cars/s | | 0.8–0.9 cars/s |
+| | Game | Simulator |
+|---|---|---|
+| Average flow over all road pieces | 54 % | 52–54 % |
+| Highways / two-lane roads / alleys | 62 / 48 / 44 % | 62–64 / 39–42 / 46–49 % |
+| Road-by-road correlation | 0.97 (with itself, 48 h later) | 0.47–0.59 |
+| Road-by-road difference (rms) | 6.8 points (with itself) | about 25 points |
+| Cars on road pieces, average / peak | 2,490 / 3,646 | 2,770–3,350 / 3,370–4,120 |
+| Car time on highways and ramps / streets | 74 / 25 % | 46–56 / 42–52 % |
+| Speed of the cars on highways (share of the limit) | 19 % | 18–28 % |
+| Traffic through the outside connections | 1.1 cars/s | 0.65–1.0 cars/s |
+| Car trips taken off the road as stuck | not measured | 1–16 % |
 
-The city average and the road types are close, and the road-by-road agreement has roughly doubled. What the
-simulator still gets wrong is *where* Corwen's congestion is: in the game it sits in the long highway queues, while
-the simulator spreads its congestion over city streets. Lowering capacities until the simulator builds those queues
-made it pile up cars without end (far beyond the game's peak), so the calibration keeps the simulator steady
-instead. Since the game agrees with itself at 0.97, the remaining per-road differences are real, not noise.
+The simulator is steady: 2, 3, 5 or 8 simulated days give the same city (51–54 % flow), and the 39 battle layouts
+differ by 1 point on average between 3 and 5 days. (Until November 10 it was not: with the old rule for blocked cars
+the city slid into gridlock when more than two days were simulated, 58 % → 31 % after six, and the calibration had
+matched day two of that slide.) The highway queues of the game now form in the right place, behind the interchange
+at the city's west end, and move at the game's speed. They are still shorter than in the game (the game's east queue
+is 5 km long), the two-lane streets are 6–9 points too slow, and how many cars get stuck varies a lot from seed to
+seed. Since the game agrees with itself at 0.97, the remaining per-road differences are real, not noise.
 
-Two capacities can't be measured in Corwen, because none of its streets carries much traffic per lane (at most 0.09
-cars/s): the lane capacity along city roads stays at an assumed 0.5 cars/s, and the city junction capacity (0.8,
-fitted) is only weakly determined. Dense layouts near that limit can flip between flowing and jammed (06-01-A: 6 %
-flow at 0.8, 54 % at 1.0). Treat results as a comparison between layouts under the same rules, not as an exact
+The lane capacity along city roads can't be measured in Corwen, because none of its streets carries much traffic per
+lane (at most 0.09 cars/s); it stays at an assumed 0.5 cars/s. An overloaded layout no longer freezes at 1–6 % flow:
+it keeps moving at a low flow and loses a large share of its trips as stuck, so read the flow together with the
+"stuck" and "completed" numbers. Treat results as a comparison between layouts under the same rules, not as an exact
 prediction.
 
 ### Running the probe
