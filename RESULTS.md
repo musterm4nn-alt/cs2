@@ -33,6 +33,13 @@ Sorted by wins, then win rate, then average points of valid layouts.
 
 | Model | Battles | Wins | Losses | Draws | Valid layouts | Avg points (valid) |
 |---|---|---|---|---|---|---|
+| glm-5.3-max | 1 | 1 | 0 | 0 | 1 | 99.2 |
+| claude-opus-5.5-high | 1 | 1 | 0 | 0 | 1 | 90.8 |
+| qwen3.8-max-0902 | 1 | 1 | 0 | 0 | 1 | 83.1 |
+| deepseek-v4.1-flash-high | 1 | 1 | 0 | 0 | 1 | 78.8 |
+| claude-fable-5.1-max | 1 | 0 | 1 | 0 | 1 | 84.1 |
+| mimo-v2.6-pro | 1 | 0 | 1 | 0 | 1 | 80.3 |
+| minimax-m3-1-flash | 1 | 0 | 1 | 0 | 0 | – |
 
 ### Battles (v3.4.0)
 
@@ -40,6 +47,24 @@ Sorted by wins, then win rate, then average points of valid layouts.
 
 | Round | Battle | Model A | Errors A | Points A | Read A | Model B | Errors B | Points B | Read B | Winner | Decided by |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 8¹ | 08-01 | claude-opus-5.5-high | 0 | 90.8 | 7 | mimo-v2.6-pro | 0 | 80.3 | 9 | **claude-opus-5.5-high** | points² |
+| 8¹ | 08-02 | deepseek-v4.1-flash-high | 0 | 78.8 | 11 | (not revealed) | no layout | – | – | **deepseek-v4.1-flash-high** | no output³ |
+| 8¹ | 08-03 | qwen3.8-max-0902 | 0 | 83.1 | 12 | minimax-m3-1-flash | no layout | – | – | **qwen3.8-max-0902** | no output⁴ |
+| 8¹ | 08-04 | claude-fable-5.1-max | 0 | 84.1 | 14 | glm-5.3-max | 0 | 99.2 | 21 | **glm-5.3-max** | points⁵ |
+
+¹ Round 8's uploaded files are named 3.4.0-1A to 3.4.0-4B. 08-02-B's model name wasn't revealed, so it has no
+leaderboard row.
+
+² 08-01: both layouts are clean (no errors, no warnings). A won on capacity (25 vs 20) and cost (15 vs 6.3 of 15);
+B was ahead on services (21.7 vs 19.7).
+
+³ 08-02-B didn't produce a page.
+
+⁴ 08-03-B: the page's layout script has a syntax error (a stray closing brace at script line 91), so it never runs
+the validator. 08-03-A's warning is a high-school sports field sub-building whose front doesn't touch a road.
+
+⁵ 08-04: both layouts are clean. B is the first layout to confirm reading all 21 catalog files. A lost on balance
+(8.6 vs 15) and services (20.5 vs 24.9).
 
 ## v3.3.0 record (round 7)
 
